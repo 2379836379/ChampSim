@@ -1,0 +1,45 @@
+{
+    "executable_name": "champsim-lab1",
+    "ooo_cpu": [
+        {
+            "frequency": 4000,
+            "ifetch_buffer_size": 64,
+            "decode_buffer_size": 32,
+            "dispatch_buffer_size": 32,
+            "register_file_size": 128,
+            "rob_size": 352,
+            "lq_size": 128,
+            "sq_size": 72,
+            "fetch_width": 6,
+            "decode_width": 6,
+            "dispatch_width": 6,
+            "execute_width": 4,
+            "lq_width": 2,
+            "sq_width": 2,
+            "retire_width": 5,
+            "branch_predictor": "hashed_perceptron",
+            "btb": "basic_btb"
+        }
+    ],
+    "L1I": {
+        "sets": 64,
+        "ways": 8,
+        "mshr_size": 16,
+        "prefetcher": "no",
+        "replacement": "lru"
+    },
+    "L1D": {
+        "sets": 96,
+        "ways": 8,
+        "mshr_size": 16,
+        "prefetcher": "no",
+        "replacement": "lru"
+    },
+    "L2C": {
+        "sets": 2048,
+        "ways": 16,
+        "mshr_size": 20,
+        "prefetcher": "no",
+        "replacement": "lru"
+    }
+}
