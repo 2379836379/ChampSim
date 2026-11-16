@@ -19,12 +19,12 @@ bool my_perceptron::predict_branch(champsim::address pc)
 
 void my_perceptron::last_branch_result(champsim::address pc, champsim::address branch_target, bool taken, uint8_t branch_type)
 {
-  for (auto& hist : ghist_words) {
-    hist.push_back(taken);
-  }
-
   if (branch_type != BRANCH_CONDITIONAL && branch_type != BRANCH_OTHER) {
     return;
+  }
+
+  for (auto& hist : ghist_words) {
+    hist.push_back(taken);
   }
 
   // perceptron learning rule: train if misprediction or weak correct prediction
