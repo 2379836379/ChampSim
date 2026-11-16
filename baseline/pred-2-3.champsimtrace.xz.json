@@ -1,0 +1,22 @@
+{
+  "mpki": 6.993,
+  "metadata": {
+    "version": 1,
+    "predictor": "bimodal",
+    "warmup_instructions": 2000000,
+    "simulation_instructions": 100000000,
+    "configuration": {
+      "ooo_cpu": [
+        {
+          "frequency": 4000,
+          "rob_size": 352,
+          "branch_predictor": "bimodal",
+          "btb": "basic_btb",
+          "mispredict_penalty": 15
+        }
+      ]
+    },
+    "source_sha256": "a400a719cadaea0ad469dcaa0e56eab7713012e7037d7c96dad327ffc8778e70",
+    "trace_sha256": "9bdb30dfd624b72c95f5afb7a4c86dc7a8c0bf6e67d052b0d36990bac634b2dc"
+  }
+}
