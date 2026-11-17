@@ -71,6 +71,9 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
   local_histories[last_result.local_history_index] = static_cast<uint16_t>(((last_result.local_history_value << 1) | (taken ? 1u : 0u)) & (LOCAL_HISTORY_SIZE - 1));
 
   if (taken) {
+    if (loop.trip_count != 0 && loop.current_count >= loop.trip_count) {
+      loop.confidence = 0;
+    }
     if (loop.current_count < std::numeric_limits<uint32_t>::max()) {
       ++loop.current_count;
     }
