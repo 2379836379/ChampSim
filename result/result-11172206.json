@@ -1,0 +1,18 @@
+{
+  "score": 180700378.980867,
+  "warmup_instructions": 2000000,
+  "simulation_instructions": 100000000,
+  "binary": "/home/ubuntu/ChampSim/bin/auto-run-my_perceptron-run-kk10k__h",
+  "results": [
+    {
+      "trace": "403.gcc-48B.champsimtrace.xz",
+      "baseline_mpki": 1.424,
+      "candidate_mpki": 0.2737
+    },
+    {
+      "trace": "657.xz_s-56B.champsimtrace.xz",
+      "baseline_mpki": 0.6276,
+      "candidate_mpki": 0.0
+    }
+  ]
+}

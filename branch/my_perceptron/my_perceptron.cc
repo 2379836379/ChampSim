@@ -24,7 +24,7 @@ bool my_perceptron::predict_branch(champsim::address pc)
   result.local_prediction = local_pattern_counters[result.local_pattern_index].value() >= 0;
   result.use_local = chooser[result.chooser_index].value() >= 2;
   result.pc_tag = pc.to<uint64_t>();
-  result.loop_index = result.pc_tag % LOOP_TABLE_SIZE;
+  result.loop_index = (result.pc_tag >> 4) & (LOOP_TABLE_SIZE - 1);
   const auto& loop = loop_table[result.loop_index];
   if (loop.valid && loop.tag == result.pc_tag && loop.confidence.value() >= 2 && loop.trip_count != 0) {
     result.loop_prediction_valid = true;
