@@ -26,6 +26,7 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static bits LOCAL_HISTORY_INDEX_BITS{champsim::msl::lg2(LOCAL_HISTORY_SIZE)};
   constexpr static std::size_t LOCAL_PATTERN_SIZE = 1 << 10;
   constexpr static std::size_t CHOOSER_SIZE = TABLE_SIZE;
+  constexpr static std::size_t LOOP_TABLE_SIZE = 64;
 
   constexpr static std::array<bits, NTABLES> history_lengths = {
       bits{},   MINHIST,  bits{4},  bits{6},  bits{8},  bits{10},  bits{14},  bits{19},
@@ -46,6 +47,15 @@ class my_perceptron : champsim::modules::branch_predictor
   std::array<champsim::msl::sfwcounter<3>, LOCAL_PATTERN_SIZE> local_pattern_counters{};
   std::array<champsim::msl::fwcounter<2>, CHOOSER_SIZE> chooser{};
 
+  struct loop_entry {
+    uint64_t tag = 0;
+    uint32_t trip_count = 0;
+    uint32_t current_count = 0;
+    champsim::msl::fwcounter<2> confidence{};
+    bool valid = false;
+  };
+  std::array<loop_entry, LOOP_TABLE_SIZE> loop_table{};
+
   int theta = 10;
   int tc = 0; // counter for threshold setting algorithm
 
@@ -56,9 +66,13 @@ class my_perceptron : champsim::modules::branch_predictor
     uint64_t local_pattern_index = 0;
     uint64_t chooser_index = 0;
     uint16_t local_history_value = 0;
+    uint64_t loop_index = 0;
+    uint64_t pc_tag = 0;
     bool global_prediction = false;
     bool local_prediction = false;
     bool use_local = false;
+    bool loop_prediction_valid = false;
+    bool loop_prediction = false;
   };
 
   perceptron_result last_result{};

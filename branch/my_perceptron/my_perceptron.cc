@@ -1,5 +1,6 @@
 #include "my_perceptron.h"
 #include "instruction.h"
+#include <limits>
 #include <numeric>
 
 bool my_perceptron::predict_branch(champsim::address pc)
@@ -22,7 +23,17 @@ bool my_perceptron::predict_branch(champsim::address pc)
   result.global_prediction = result.yout >= THRESHOLD;
   result.local_prediction = local_pattern_counters[result.local_pattern_index].value() >= 0;
   result.use_local = chooser[result.chooser_index].value() >= 2;
+  result.pc_tag = pc.to<uint64_t>();
+  result.loop_index = result.pc_tag % LOOP_TABLE_SIZE;
+  const auto& loop = loop_table[result.loop_index];
+  if (loop.valid && loop.tag == result.pc_tag && loop.confidence.value() >= 2 && loop.trip_count != 0) {
+    result.loop_prediction_valid = true;
+    result.loop_prediction = loop.current_count < loop.trip_count;
+  }
   last_result = result;
+  if (result.loop_prediction_valid) {
+    return result.loop_prediction;
+  }
   return result.use_local ? result.local_prediction : result.global_prediction;
 }
 
@@ -30,6 +41,13 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
 {
   if (branch_type != BRANCH_CONDITIONAL && branch_type != BRANCH_OTHER) {
     return;
+  }
+
+  auto& loop = loop_table[last_result.loop_index];
+  if (!loop.valid || loop.tag != last_result.pc_tag) {
+    loop = loop_entry{};
+    loop.valid = true;
+    loop.tag = last_result.pc_tag;
   }
 
   for (auto& hist : ghist_words) {
@@ -52,8 +70,22 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
   }
   local_histories[last_result.local_history_index] = static_cast<uint16_t>(((last_result.local_history_value << 1) | (taken ? 1u : 0u)) & (LOCAL_HISTORY_SIZE - 1));
 
+  if (taken) {
+    if (loop.current_count < std::numeric_limits<uint32_t>::max()) {
+      ++loop.current_count;
+    }
+  } else {
+    if (loop.trip_count == loop.current_count) {
+      loop.confidence++;
+    } else {
+      loop.trip_count = loop.current_count;
+      loop.confidence = 0;
+    }
+    loop.current_count = 0;
+  }
+
   // perceptron learning rule: train if misprediction or weak correct prediction
-  bool prediction_correct = (taken == (last_result.yout >= THRESHOLD));
+  bool prediction_correct = (taken == last_result.global_prediction);
   bool prediction_weak = (std::abs(last_result.yout) < theta);
   if (!prediction_correct || prediction_weak) {
     for (std::size_t i = 0; i < std::size(tables); i++)
