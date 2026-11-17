@@ -21,6 +21,12 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static bits TABLE_INDEX_BITS{champsim::msl::lg2(TABLE_SIZE)};
   constexpr static int THRESHOLD = 1;
 
+  // A small per-PC local history predictor complements the global perceptron.
+  constexpr static std::size_t LOCAL_HISTORY_SIZE = 1 << 10;
+  constexpr static bits LOCAL_HISTORY_INDEX_BITS{champsim::msl::lg2(LOCAL_HISTORY_SIZE)};
+  constexpr static std::size_t LOCAL_PATTERN_SIZE = 1 << 10;
+  constexpr static std::size_t CHOOSER_SIZE = TABLE_SIZE;
+
   constexpr static std::array<bits, NTABLES> history_lengths = {
       bits{},   MINHIST,  bits{4},  bits{6},  bits{8},  bits{10},  bits{14},  bits{19},
       bits{26}, bits{36}, bits{49}, bits{67}, bits{91}, bits{125}, bits{170}, MAXHIST}; // geometric global history lengths
@@ -36,12 +42,23 @@ class my_perceptron : champsim::modules::branch_predictor
     return retval;
   }();
 
+  std::array<uint16_t, LOCAL_HISTORY_SIZE> local_histories{};
+  std::array<champsim::msl::sfwcounter<3>, LOCAL_PATTERN_SIZE> local_pattern_counters{};
+  std::array<champsim::msl::fwcounter<2>, CHOOSER_SIZE> chooser{};
+
   int theta = 10;
   int tc = 0; // counter for threshold setting algorithm
 
   struct perceptron_result {
     std::array<uint64_t, std::tuple_size_v<decltype(history_lengths)>> indices = {}; // remember the indices into the tables from prediction to update
-    int yout = 0;                                                                    // perceptron sum
+    int yout = 0;                                                                    // global perceptron sum
+    uint64_t local_history_index = 0;
+    uint64_t local_pattern_index = 0;
+    uint64_t chooser_index = 0;
+    uint16_t local_history_value = 0;
+    bool global_prediction = false;
+    bool local_prediction = false;
+    bool use_local = false;
   };
 
   perceptron_result last_result{};
