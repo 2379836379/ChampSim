@@ -26,7 +26,7 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static bits LOCAL_HISTORY_INDEX_BITS{champsim::msl::lg2(LOCAL_HISTORY_SIZE)};
   constexpr static std::size_t LOCAL_PATTERN_SIZE = 1 << 10;
   constexpr static std::size_t CHOOSER_SIZE = TABLE_SIZE;
-  constexpr static std::size_t LOOP_TABLE_SIZE = 256;
+  constexpr static std::size_t LOOP_TABLE_SIZE = 1 << 12;
 
   constexpr static std::array<bits, NTABLES> history_lengths = {
       bits{},   MINHIST,  bits{4},  bits{6},  bits{8},  bits{10},  bits{14},  bits{19},
