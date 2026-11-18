@@ -27,6 +27,9 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::size_t LOCAL_PATTERN_SIZE = 1 << 13;
   constexpr static std::size_t CHOOSER_SIZE = TABLE_SIZE;
   constexpr static std::size_t LOOP_TABLE_SIZE = 1 << 12;
+  constexpr static std::size_t TAGE_TABLES = 4;
+  constexpr static std::size_t TAGE_TABLE_SIZE = 1 << 13;
+  constexpr static std::size_t TAGE_TAG_MASK = (1 << 12) - 1;
 
   constexpr static std::array<bits, NTABLES> history_lengths = {
       bits{},    MINHIST, bits{4},    bits{6},    bits{8},    bits{10},   bits{14},   bits{19},
@@ -49,6 +52,8 @@ class my_perceptron : champsim::modules::branch_predictor
   std::array<champsim::msl::sfwcounter<5>, LOCAL_PATTERN_SIZE> local_pattern_counters{};
   std::array<champsim::msl::sfwcounter<3>, CHOOSER_SIZE> bias_counters{};
   std::array<champsim::msl::fwcounter<3>, CHOOSER_SIZE> chooser{};
+  std::array<std::array<champsim::msl::sfwcounter<3>, TAGE_TABLE_SIZE>, TAGE_TABLES> tage_counters{};
+  std::array<std::array<uint16_t, TAGE_TABLE_SIZE>, TAGE_TABLES> tage_tags{};
 
   struct loop_entry {
     uint64_t tag = 0;
@@ -81,6 +86,10 @@ class my_perceptron : champsim::modules::branch_predictor
     bool loop_prediction_valid = false;
     bool loop_prediction = false;
     bool use_loop = false;
+    std::array<uint32_t, TAGE_TABLES> tage_indices{};
+    std::array<uint16_t, TAGE_TABLES> tage_tags{};
+    std::size_t tage_provider = TAGE_TABLES;
+    bool tage_prediction = false;
   };
 
   perceptron_result last_result{};

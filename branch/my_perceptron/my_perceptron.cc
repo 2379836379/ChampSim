@@ -40,9 +40,25 @@ bool my_perceptron::predict_branch(champsim::address pc)
     result.loop_prediction = loop.current_count < loop.trip_count;
     result.use_loop = loop.confidence.value() >= 1;
   }
+  result.tage_prediction = result.base_prediction;
+  constexpr std::array<std::size_t, TAGE_TABLES> tage_history_slots = {8, 12, 16, 24};
+  for (std::size_t table = TAGE_TABLES; table-- > 0;) {
+    const auto history = ghist_words[tage_history_slots[table]].value();
+    const auto index = (pc_value ^ (pc_value >> (table + 3)) ^ history) & (TAGE_TABLE_SIZE - 1);
+    const auto tag = static_cast<uint16_t>(((pc_value >> 2) ^ (pc_value >> (table + 11)) ^ (history * 0x9e37u)) & TAGE_TAG_MASK) + 1;
+    result.tage_indices[table] = index;
+    result.tage_tags[table] = tag;
+    if (result.tage_provider == TAGE_TABLES && tage_tags[table][index] == tag) {
+      result.tage_provider = table;
+      result.tage_prediction = tage_counters[table][index].value() >= 0;
+    }
+  }
   last_result = result;
   if (result.use_loop) {
     return result.loop_prediction;
+  }
+  if (result.tage_provider != TAGE_TABLES) {
+    return result.tage_prediction;
   }
   return result.base_prediction;
 }
@@ -88,6 +104,17 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
     } else if (last_result.base_prediction == taken) {
       loop.chooser--;
     }
+  }
+
+  if (last_result.tage_provider != TAGE_TABLES) {
+    auto& counter = tage_counters[last_result.tage_provider][last_result.tage_indices[last_result.tage_provider]];
+    counter += taken ? 1 : -1;
+  }
+  if (last_result.tage_prediction != taken) {
+    const auto table = last_result.tage_provider == TAGE_TABLES ? TAGE_TABLES - 1 : last_result.tage_provider + 1;
+    auto& tag = tage_tags[table][last_result.tage_indices[table]];
+    tag = last_result.tage_tags[table];
+    tage_counters[table][last_result.tage_indices[table]] = taken ? 0 : -1;
   }
 
   if (taken) {
