@@ -15,6 +15,7 @@
 // is a standalone TAGE predictor with a bimodal base table.
 class my_perceptron : champsim::modules::branch_predictor
 {
+  friend struct my_perceptron_test_access;
   using bits = champsim::data::bits;
 
   constexpr static std::size_t BASE_TABLE_SIZE = 1 << 14;
@@ -39,7 +40,8 @@ class my_perceptron : champsim::modules::branch_predictor
   using tage_usefulness_table = std::array<champsim::msl::fwcounter<2>, TAGE_TABLE_SIZE>;
 
   std::vector<champsim::msl::fwcounter<2>> base_table = std::vector<champsim::msl::fwcounter<2>>(BASE_TABLE_SIZE);
-  std::vector<champsim::msl::fwcounter<2>> tage_chooser = std::vector<champsim::msl::fwcounter<2>>(BASE_TABLE_SIZE);
+  // Nonnegative prefers alternate, but only for weak, unproven providers.
+  champsim::msl::sfwcounter<4> use_alt_on_na{};
   std::vector<tage_counter_table> tage_counters = std::vector<tage_counter_table>(TAGE_TABLES);
   std::vector<tage_tag_table> tage_tags = std::vector<tage_tag_table>(TAGE_TABLES);
   std::vector<tage_usefulness_table> tage_usefulness = std::vector<tage_usefulness_table>(TAGE_TABLES);
@@ -59,6 +61,7 @@ class my_perceptron : champsim::modules::branch_predictor
     return retval;
   }();
   uint32_t usefulness_clock = 0;
+  uint32_t allocation_random = 0x9e3779b9u;
 
   struct loop_entry {
     uint64_t tag = 0;
@@ -74,7 +77,9 @@ class my_perceptron : champsim::modules::branch_predictor
     uint64_t base_index = 0;
     bool base_prediction = false;
     bool tage_prediction = false;
-    bool use_tage = false;
+    bool provider_weak = false;
+    bool provider_unuseful = false;
+    bool used_alternate = false;
     std::array<uint32_t, TAGE_TABLES> indices{};
     std::array<uint16_t, TAGE_TABLES> tags{};
     std::size_t provider = TAGE_TABLES;

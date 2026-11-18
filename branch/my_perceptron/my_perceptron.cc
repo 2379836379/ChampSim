@@ -37,13 +37,12 @@ bool my_perceptron::predict_branch(champsim::address pc)
   result.alternate_prediction = alternate_prediction;
   if (result.provider != TAGE_TABLES) {
     const auto provider_counter = tage_counters[result.provider][result.indices[result.provider]].value();
-    const bool provider_weak = provider_counter == 0 || provider_counter == -1;
-    result.tage_prediction = provider_weak && tage_usefulness[result.provider][result.indices[result.provider]].value() == 0
-                                 ? alternate_prediction
-                                 : result.provider_prediction;
-    result.use_tage = tage_chooser[result.base_index].value() >= 2;
+    result.provider_weak = provider_counter == 0 || provider_counter == -1;
+    result.provider_unuseful = tage_usefulness[result.provider][result.indices[result.provider]].value() == 0;
+    result.used_alternate = result.provider_weak && result.provider_unuseful && use_alt_on_na.value() >= 0;
+    result.tage_prediction = result.used_alternate ? alternate_prediction : result.provider_prediction;
   }
-  result.pre_loop_prediction = result.use_tage ? result.tage_prediction : result.base_prediction;
+  result.pre_loop_prediction = result.tage_prediction;
 
   const auto& loop = loop_table[result.loop_index];
   if (loop.valid && loop.tag == result.pc_tag && loop.trip_count >= 2) {
@@ -83,13 +82,27 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
     usefulness_clock = 0;
   }
 
-  base_table[last_result.base_index] += taken ? 1 : -1;
-
-  if (last_result.provider != TAGE_TABLES) {
+  if (last_result.provider == TAGE_TABLES) {
+    base_table[last_result.base_index] += taken ? 1 : -1;
+  } else {
     const auto provider = last_result.provider;
     const auto index = last_result.indices[provider];
     auto& counter = tage_counters[provider][index];
     counter += taken ? 1 : -1;
+
+    // Use prediction-time state: training/aging may change weakness or u.
+    if (last_result.used_alternate || last_result.provider_unuseful) {
+      if (last_result.alternate != TAGE_TABLES) {
+        tage_counters[last_result.alternate][last_result.indices[last_result.alternate]] += taken ? 1 : -1;
+      } else {
+        base_table[last_result.base_index] += taken ? 1 : -1;
+      }
+    }
+
+    if (last_result.provider_weak && last_result.provider_unuseful &&
+        last_result.provider_prediction != last_result.alternate_prediction) {
+      use_alt_on_na += last_result.alternate_prediction == taken ? 1 : -1;
+    }
 
     if (last_result.provider_prediction != last_result.alternate_prediction) {
       auto& usefulness = tage_usefulness[provider][index];
@@ -99,32 +112,38 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
         usefulness--;
       }
     }
-
-    if (last_result.tage_prediction != last_result.base_prediction) {
-      if (last_result.tage_prediction == taken) {
-        tage_chooser[last_result.base_index]++;
-      } else {
-        tage_chooser[last_result.base_index]--;
-      }
-    }
   }
 
-  // Allocate one longer-history entry when the tagged prediction is wrong. A
-  // deterministic hash spreads allocations across the eligible history lengths
-  // instead of filling only the longest table.
-  if (last_result.tage_prediction != taken) {
+  // A correct weak provider needs time to mature, not a longer-history entry
+  // merely because the alternate was selected and missed.
+  const bool provider_was_correct = last_result.provider != TAGE_TABLES && last_result.provider_prediction == taken;
+  if (last_result.tage_prediction != taken && !provider_was_correct) {
     const auto first_table = last_result.provider == TAGE_TABLES ? 0 : last_result.provider + 1;
     if (first_table < TAGE_TABLES) {
       const auto candidate_count = TAGE_TABLES - first_table;
-      const auto allocation_seed = (last_result.base_index ^ last_result.tags[first_table] ^ usefulness_clock) % candidate_count;
+      allocation_random ^= allocation_random << 13;
+      allocation_random ^= allocation_random >> 17;
+      allocation_random ^= allocation_random << 5;
+      // Usually start at the next longer table; skip one bank on 1/4 of
+      // attempts. Try the skipped bank last before declaring failure.
+      const std::size_t skip = candidate_count > 1 && (allocation_random & 3u) == 0 ? 1 : 0;
+      bool allocated = false;
       for (std::size_t offset = 0; offset < candidate_count; ++offset) {
-        const auto table = first_table + ((allocation_seed + offset) % candidate_count);
+        const auto table = first_table + ((skip + offset) % candidate_count);
         const auto index = last_result.indices[table];
         if (tage_tags[table][index] == 0 || tage_usefulness[table][index].value() == 0) {
           tage_tags[table][index] = last_result.tags[table];
           tage_counters[table][index] = taken ? 0 : -1;
           tage_usefulness[table][index] = 0;
+          allocated = true;
           break;
+        }
+      }
+      if (!allocated) {
+        // Release stale protection under allocation pressure as well as via
+        // periodic aging. No useful entry is overwritten on this attempt.
+        for (auto table = first_table; table < TAGE_TABLES; ++table) {
+          tage_usefulness[table][last_result.indices[table]]--;
         }
       }
     }
