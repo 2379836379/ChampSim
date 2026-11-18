@@ -19,6 +19,7 @@ class my_perceptron : champsim::modules::branch_predictor
   using bits = champsim::data::bits;
 
   constexpr static std::size_t BASE_TABLE_SIZE = 1 << 14;
+  constexpr static std::size_t ALT_SELECTOR_SIZE = 1 << 14;
   constexpr static std::size_t TAGE_TABLES = 12;
   constexpr static std::size_t TAGE_TABLE_SIZE = 1 << 13;
   constexpr static bits TAGE_INDEX_BITS{champsim::msl::lg2(TAGE_TABLE_SIZE)};
@@ -41,7 +42,9 @@ class my_perceptron : champsim::modules::branch_predictor
 
   std::vector<champsim::msl::fwcounter<2>> base_table = std::vector<champsim::msl::fwcounter<2>>(BASE_TABLE_SIZE);
   // Nonnegative prefers alternate, but only for weak, unproven providers.
-  champsim::msl::sfwcounter<4> use_alt_on_na{};
+  // Indexing by PC and provider prevents unrelated branches from training one
+  // global use-alt decision in opposite directions.
+  std::vector<champsim::msl::sfwcounter<4>> use_alt_on_na = std::vector<champsim::msl::sfwcounter<4>>(ALT_SELECTOR_SIZE);
   std::vector<tage_counter_table> tage_counters = std::vector<tage_counter_table>(TAGE_TABLES);
   std::vector<tage_tag_table> tage_tags = std::vector<tage_tag_table>(TAGE_TABLES);
   std::vector<tage_usefulness_table> tage_usefulness = std::vector<tage_usefulness_table>(TAGE_TABLES);
@@ -80,6 +83,7 @@ class my_perceptron : champsim::modules::branch_predictor
     bool provider_weak = false;
     bool provider_unuseful = false;
     bool used_alternate = false;
+    uint64_t alt_selector_index = 0;
     std::array<uint32_t, TAGE_TABLES> indices{};
     std::array<uint16_t, TAGE_TABLES> tags{};
     std::size_t provider = TAGE_TABLES;

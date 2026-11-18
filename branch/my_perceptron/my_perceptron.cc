@@ -39,7 +39,8 @@ bool my_perceptron::predict_branch(champsim::address pc)
     const auto provider_counter = tage_counters[result.provider][result.indices[result.provider]].value();
     result.provider_weak = provider_counter == 0 || provider_counter == -1;
     result.provider_unuseful = tage_usefulness[result.provider][result.indices[result.provider]].value() == 0;
-    result.used_alternate = result.provider_weak && result.provider_unuseful && use_alt_on_na.value() >= 0;
+    result.alt_selector_index = (pc_hash ^ (pc_hash >> 7) ^ (result.provider * 0x9e37u)) & (ALT_SELECTOR_SIZE - 1);
+    result.used_alternate = result.provider_weak && result.provider_unuseful && use_alt_on_na[result.alt_selector_index].value() >= 0;
     result.tage_prediction = result.used_alternate ? alternate_prediction : result.provider_prediction;
   }
   result.pre_loop_prediction = result.tage_prediction;
@@ -102,7 +103,7 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
 
     if (last_result.provider_weak && last_result.provider_unuseful &&
         last_result.provider_prediction != last_result.alternate_prediction) {
-      use_alt_on_na += last_result.alternate_prediction == taken ? 1 : -1;
+      use_alt_on_na[last_result.alt_selector_index] += last_result.alternate_prediction == taken ? 1 : -1;
     }
 
     if (last_result.provider_prediction != last_result.alternate_prediction) {

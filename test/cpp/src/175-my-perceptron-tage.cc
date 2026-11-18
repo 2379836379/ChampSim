@@ -30,8 +30,9 @@ struct my_perceptron_test_access {
     install(p, 2, 0);
     REQUIRE_FALSE(p.predict_branch(pc)); // Initially favor alternate for weak u=0.
     REQUIRE(p.last_result.used_alternate);
+    const auto selector_index = p.last_result.alt_selector_index;
     update(p, true);
-    REQUIRE(p.use_alt_on_na.value() < 0);
+    REQUIRE(p.use_alt_on_na[selector_index].value() < 0);
     // The correct provider should mature without redundant allocation.
     for (std::size_t bank = 3; bank < p.TAGE_TABLES; ++bank)
       REQUIRE(p.tage_tags[bank][p.last_result.indices[bank]] == 0);
@@ -40,11 +41,11 @@ struct my_perceptron_test_access {
     REQUIRE(p.predict_branch(pc)); // Learned to trust weak provider.
     REQUIRE_FALSE(p.last_result.used_alternate);
     update(p, false);
-    REQUIRE(p.use_alt_on_na.value() == 0);
+    REQUIRE(p.use_alt_on_na[selector_index].value() == 0);
 
     // A useful provider must bypass even a strongly alternate-biased selector.
-    p.use_alt_on_na = 7;
     install(p, 11, 0, 1);
+    p.use_alt_on_na[p.last_result.alt_selector_index] = 7;
     REQUIRE(p.predict_branch(pc));
     REQUIRE_FALSE(p.last_result.used_alternate);
   }
