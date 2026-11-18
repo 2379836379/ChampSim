@@ -46,7 +46,7 @@ class my_perceptron : champsim::modules::branch_predictor
   }();
 
   std::array<uint16_t, LOCAL_HISTORY_SIZE> local_histories{};
-  std::array<champsim::msl::sfwcounter<3>, LOCAL_PATTERN_SIZE> local_pattern_counters{};
+  std::array<champsim::msl::sfwcounter<5>, LOCAL_PATTERN_SIZE> local_pattern_counters{};
   std::array<champsim::msl::sfwcounter<3>, CHOOSER_SIZE> bias_counters{};
   std::array<champsim::msl::fwcounter<3>, CHOOSER_SIZE> chooser{};
 
