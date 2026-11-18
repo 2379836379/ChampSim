@@ -5,8 +5,10 @@
 
 bool my_perceptron::predict_branch(champsim::address pc)
 {
-  auto get_index = [pc_slice = pc.slice_lower<TABLE_INDEX_BITS>().to<uint64_t>()](const auto& hist) {
-    return hist.value() ^ pc_slice; // seed in the PC to spread accesses around (like gshare) XOR in the last word
+  const auto pc_value = pc.to<uint64_t>();
+  const auto pc_hash = ((pc_value >> 2) ^ (pc_value >> 16)) & (TABLE_SIZE - 1);
+  auto get_index = [pc_hash](const auto& hist) {
+    return hist.value() ^ pc_hash; // seed in the PC to spread accesses around (like gshare) XOR in the last word
   };
   perceptron_result result;
   std::transform(std::cbegin(ghist_words), std::cend(ghist_words), std::begin(result.indices), get_index);
@@ -15,13 +17,12 @@ bool my_perceptron::predict_branch(champsim::address pc)
   result.yout = std::inner_product(std::begin(tables), std::end(tables), std::begin(result.indices), 0, std::plus<>{},
                                    [](const auto& table, const auto& index) { return table.at(index).value(); });
 
-  const auto pc_value = pc.to<uint64_t>();
   result.local_history_index = ((pc_value >> 2) ^ (pc_value >> 14)) & (LOCAL_HISTORY_SIZE - 1);
   auto local_history = local_histories[result.local_history_index];
   result.local_history_value = local_history;
   result.local_pattern_index = (local_history ^ result.local_history_index) & (LOCAL_PATTERN_SIZE - 1);
-  result.chooser_index = pc.slice_lower<TABLE_INDEX_BITS>().to<uint64_t>();
-  result.bias_index = (pc.to<uint64_t>() >> 2) & (CHOOSER_SIZE - 1);
+  result.chooser_index = pc_hash;
+  result.bias_index = pc_hash;
   result.global_prediction = result.yout >= THRESHOLD;
   const auto bias = bias_counters[result.bias_index].value();
   result.bias_prediction = bias >= 0;
