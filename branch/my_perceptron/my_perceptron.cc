@@ -36,7 +36,7 @@ bool my_perceptron::predict_branch(champsim::address pc)
   if (loop.valid && loop.tag == result.pc_tag && loop.trip_count >= 2) {
     result.loop_prediction_valid = true;
     result.loop_prediction = loop.current_count < loop.trip_count;
-    result.use_loop = loop.confidence.value() >= 2 && loop.chooser.value() >= 2;
+    result.use_loop = loop.confidence.value() >= 2;
   }
   last_result = result;
   if (result.use_loop) {
