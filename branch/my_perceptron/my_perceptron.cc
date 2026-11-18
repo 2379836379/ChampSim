@@ -136,7 +136,9 @@ void my_perceptron::adjust_threshold(bool correct)
     // decrease theta after enough weak but correct predictions
     tc--;
     if (tc <= -SPEED) {
-      theta--;
+      if (theta > 1) {
+        theta--;
+      }
       tc = 0;
     }
   }
