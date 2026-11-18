@@ -37,8 +37,9 @@ class my_perceptron : champsim::modules::branch_predictor
       bits{310}, bits{414}, bits{552}, bits{736}, bits{981},  bits{1307}, bits{1742}, bits{2320},
       bits{3090}, bits{4110}, bits{5460}, bits{7250}, bits{9620}, bits{12780}, bits{16970}, MAXHIST}; // geometric global history lengths
 
-  // Wider weights preserve confidence for long-running stable branches.
-  std::array<std::array<champsim::msl::sfwcounter<10>, TABLE_SIZE>, NTABLES> tables{};
+  // Keep large predictor tables off the module object to reduce generated-code compile memory.
+  using weight_table = std::array<champsim::msl::sfwcounter<10>, TABLE_SIZE>;
+  std::vector<weight_table> tables = std::vector<weight_table>(NTABLES);
 
   // words that store the global history
   using history_type = folded_shift_register<TABLE_INDEX_BITS>;
@@ -50,11 +51,14 @@ class my_perceptron : champsim::modules::branch_predictor
 
   std::array<uint16_t, LOCAL_HISTORY_SIZE> local_histories{};
   std::array<champsim::msl::sfwcounter<5>, LOCAL_PATTERN_SIZE> local_pattern_counters{};
-  std::array<champsim::msl::sfwcounter<3>, CHOOSER_SIZE> bias_counters{};
-  std::array<champsim::msl::fwcounter<3>, CHOOSER_SIZE> chooser{};
-  std::array<std::array<champsim::msl::sfwcounter<3>, TAGE_TABLE_SIZE>, TAGE_TABLES> tage_counters{};
-  std::array<std::array<uint16_t, TAGE_TABLE_SIZE>, TAGE_TABLES> tage_tags{};
-  std::array<std::array<champsim::msl::fwcounter<2>, TAGE_TABLE_SIZE>, TAGE_TABLES> tage_usefulness{};
+  std::vector<champsim::msl::sfwcounter<3>> bias_counters = std::vector<champsim::msl::sfwcounter<3>>(CHOOSER_SIZE);
+  std::vector<champsim::msl::fwcounter<3>> chooser = std::vector<champsim::msl::fwcounter<3>>(CHOOSER_SIZE);
+  using tage_counter_table = std::array<champsim::msl::sfwcounter<3>, TAGE_TABLE_SIZE>;
+  using tage_tag_table = std::array<uint16_t, TAGE_TABLE_SIZE>;
+  using tage_usefulness_table = std::array<champsim::msl::fwcounter<2>, TAGE_TABLE_SIZE>;
+  std::vector<tage_counter_table> tage_counters = std::vector<tage_counter_table>(TAGE_TABLES);
+  std::vector<tage_tag_table> tage_tags = std::vector<tage_tag_table>(TAGE_TABLES);
+  std::vector<tage_usefulness_table> tage_usefulness = std::vector<tage_usefulness_table>(TAGE_TABLES);
 
   struct loop_entry {
     uint64_t tag = 0;
