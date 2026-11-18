@@ -158,6 +158,29 @@ struct my_perceptron_test_access {
       REQUIRE(learning.sc_counters[table][saved.sc_indices[table]].value() == 1);
     REQUIRE(learning.sc_selectors[saved.sc_selector_index].value() == -1);
   }
+
+  static void interleaved_local_pattern()
+  {
+    my_perceptron p{nullptr};
+    constexpr champsim::address noise{0x8000};
+    p.predict_branch(pc);
+    const auto cold = p.last_result;
+    for (unsigned i = 0; i < 64; ++i) {
+      // Flush every global SC history, without changing the target's local history.
+      for (unsigned j = 0; j < 256; ++j) {
+        p.predict_branch(noise);
+        p.last_branch_result(noise, champsim::address{}, false, BRANCH_CONDITIONAL);
+      }
+      const bool taken = i % 2 == 0;
+      p.predict_branch(pc);
+      if (i >= 56) {
+        REQUIRE(std::equal(cold.sc_indices.begin(), cold.sc_indices.begin() + p.SC_TABLES, p.last_result.sc_indices.begin()));
+        REQUIRE(p.last_result.sc_prediction == taken);
+        REQUIRE(std::abs(p.last_result.sc_sum) >= p.SC_THRESHOLD);
+      }
+      update(p, taken);
+    }
+  }
 };
 
 TEST_CASE("TAGE learns alternate selection only for weak unproven providers", "[my_perceptron]")
@@ -178,4 +201,9 @@ TEST_CASE("TAGE allocates nearby and ages protected candidates on failure", "[my
 TEST_CASE("TAGE statistical corrector overrides and learns short-history patterns", "[my_perceptron]")
 {
   my_perceptron_test_access::statistical_corrector();
+}
+
+TEST_CASE("SC learns alternating local outcomes across identical global contexts", "[my_perceptron]")
+{
+  my_perceptron_test_access::interleaved_local_pattern();
 }

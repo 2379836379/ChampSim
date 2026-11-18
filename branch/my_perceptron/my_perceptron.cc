@@ -47,8 +47,17 @@ bool my_perceptron::predict_branch(champsim::address pc)
   for (std::size_t table = 0; table < SC_TABLES; ++table) {
     const auto history = sc_histories[table].value();
     result.sc_indices[table] = static_cast<uint32_t>((pc_value ^ (pc_value >> (table + 3)) ^ history) & (SC_TABLE_SIZE - 1));
-    result.sc_sum += static_cast<int>(sc_counters[table][result.sc_indices[table]].value());
   }
+  const auto local_pc_hash = pc_value ^ (pc_value >> 13) ^ (pc_value >> 26);
+  result.sc_local_slot = static_cast<uint32_t>(local_pc_hash & (SC_TABLE_SIZE - 1));
+  const auto local_history = sc_local_histories[result.sc_local_slot];
+  for (std::size_t i = 0; i < sc_local_lengths.size(); ++i) {
+    const auto recent = local_history & ((uint32_t{1} << sc_local_lengths[i]) - 1);
+    const auto folded = recent ^ (recent >> champsim::msl::lg2(SC_TABLE_SIZE));
+    result.sc_indices[SC_TABLES + i] = static_cast<uint32_t>((local_pc_hash ^ folded) & (SC_TABLE_SIZE - 1));
+  }
+  for (std::size_t table = 0; table < SC_TOTAL_TABLES; ++table)
+    result.sc_sum += static_cast<int>(sc_counters[table][result.sc_indices[table]].value());
   result.sc_prediction = result.sc_sum >= 0;
   result.sc_selector_index = ((pc_value >> 2) ^ (pc_value >> 13) ^ (pc_value >> 23)) & (SC_SELECTOR_SIZE - 1);
   result.sc_disagrees = result.sc_prediction != result.tage_prediction;
@@ -89,6 +98,8 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
   for (auto& history : sc_histories) {
     history.push_back(taken);
   }
+  auto& local_history = sc_local_histories[last_result.sc_local_slot];
+  local_history = (local_history << 1) | static_cast<uint32_t>(taken);
 
   if (++usefulness_clock == (1u << 18)) {
     for (auto& table : tage_usefulness) {
@@ -137,7 +148,7 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
   const auto sc_mispredicted = last_result.sc_prediction != taken;
   const auto sc_near_threshold = std::abs(last_result.sc_sum) < SC_THRESHOLD;
   if (sc_mispredicted || sc_near_threshold) {
-    for (std::size_t table = 0; table < SC_TABLES; ++table) {
+    for (std::size_t table = 0; table < SC_TOTAL_TABLES; ++table) {
       sc_counters[table][last_result.sc_indices[table]] += taken ? 1 : -1;
     }
   }
