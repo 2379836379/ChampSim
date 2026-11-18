@@ -38,7 +38,9 @@ bool my_perceptron::predict_branch(champsim::address pc)
   if (loop.valid && loop.tag == result.pc_tag && loop.trip_count >= 2) {
     result.loop_prediction_valid = true;
     result.loop_prediction = loop.current_count < loop.trip_count;
-    result.use_loop = loop.confidence.value() >= 1;
+    // Require both a confirmed trip count and evidence that the loop beats the
+    // base predictor before allowing it to override the base prediction.
+    result.use_loop = loop.confidence.value() >= 1 && loop.chooser.value() >= 1;
   }
   result.tage_prediction = result.base_prediction;
   constexpr std::array<std::size_t, TAGE_TABLES> tage_history_slots = {8, 12, 16, 24};
