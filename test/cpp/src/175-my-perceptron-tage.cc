@@ -138,8 +138,10 @@ struct my_perceptron_test_access {
     auto saved = p.last_result;
     for (std::size_t table = 0; table < p.SC_TABLES; ++table)
       p.sc_counters[table][saved.sc_indices[table]] = 2;
+    for (std::size_t table = p.SC_TABLES; table < p.SC_TOTAL_TABLES; ++table)
+      p.sc_counters[table][saved.sc_indices[table]] = 1;
     REQUIRE(p.predict_branch(pc)); // Strong short-history vote overrides TAGE.
-    REQUIRE(p.last_result.sc_sum == 16);
+    REQUIRE(p.last_result.sc_sum == 23);
     REQUIRE(p.last_result.used_sc);
 
     p.sc_selectors[p.last_result.sc_selector_index] = -7;

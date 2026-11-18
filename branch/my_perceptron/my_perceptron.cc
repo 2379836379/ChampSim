@@ -57,6 +57,14 @@ bool my_perceptron::predict_branch(champsim::address pc)
     const auto folded = recent ^ (recent >> champsim::msl::lg2(SC_TABLE_SIZE));
     result.sc_indices[SC_TABLES + i] = static_cast<uint32_t>((local_pc_hash ^ folded) & (SC_TABLE_SIZE - 1));
   }
+  const auto alt_local_pc_hash = (pc_value >> 3) ^ (pc_value >> 11) ^ (pc_value >> 24);
+  result.sc_alt_local_slot = static_cast<uint32_t>(alt_local_pc_hash & (SC_TABLE_SIZE - 1));
+  const auto alt_local_history = sc_alt_local_histories[result.sc_alt_local_slot];
+  for (std::size_t i = 0; i < sc_alt_local_lengths.size(); ++i) {
+    const auto recent = alt_local_history & ((uint32_t{1} << sc_alt_local_lengths[i]) - 1);
+    const auto folded = recent ^ (recent >> champsim::msl::lg2(SC_TABLE_SIZE));
+    result.sc_indices[SC_TABLES + sc_local_lengths.size() + i] = static_cast<uint32_t>((alt_local_pc_hash ^ folded) & (SC_TABLE_SIZE - 1));
+  }
   for (std::size_t table = 0; table < SC_TOTAL_TABLES; ++table)
     result.sc_sum += static_cast<int>(sc_counters[table][result.sc_indices[table]].value());
   result.sc_prediction = result.sc_sum >= 0;
@@ -103,6 +111,8 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
   path_history = (path_history << 7) ^ (pc_value >> 2) ^ branch_target.to<uint64_t>();
   auto& local_history = sc_local_histories[last_result.sc_local_slot];
   local_history = (local_history << 1) | static_cast<uint32_t>(taken);
+  auto& alt_local_history = sc_alt_local_histories[last_result.sc_alt_local_slot];
+  alt_local_history = (alt_local_history << 1) | static_cast<uint32_t>(taken);
 
   if (++usefulness_clock == (1u << 18)) {
     for (auto& table : tage_usefulness) {
