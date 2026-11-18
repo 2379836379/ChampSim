@@ -90,8 +90,9 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
     auto& counter = tage_counters[provider][index];
     counter += taken ? 1 : -1;
 
-    // Use prediction-time state: training/aging may change weakness or u.
-    if (last_result.used_alternate || last_result.provider_unuseful) {
+    // Use prediction-time state: training/aging may change weakness or u. The
+    // alternate is trained only when it was actually selected for this branch.
+    if (last_result.used_alternate) {
       if (last_result.alternate != TAGE_TABLES) {
         tage_counters[last_result.alternate][last_result.indices[last_result.alternate]] += taken ? 1 : -1;
       } else {
@@ -114,10 +115,11 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
     }
   }
 
-  // A correct weak provider needs time to mature, not a longer-history entry
-  // merely because the alternate was selected and missed.
-  const bool provider_was_correct = last_result.provider != TAGE_TABLES && last_result.provider_prediction == taken;
-  if (last_result.tage_prediction != taken && !provider_was_correct) {
+  // Allocate on a provider miss, even when the alternate happened to rescue
+  // the current prediction. That longer-history context can learn the pattern
+  // before the shorter provider becomes destructive again.
+  const bool provider_mispredicted = last_result.provider == TAGE_TABLES ? last_result.base_prediction != taken : last_result.provider_prediction != taken;
+  if (provider_mispredicted) {
     const auto first_table = last_result.provider == TAGE_TABLES ? 0 : last_result.provider + 1;
     if (first_table < TAGE_TABLES) {
       const auto candidate_count = TAGE_TABLES - first_table;
@@ -127,7 +129,7 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
       // Usually start at the next longer table; skip one bank on 1/4 of
       // attempts. Try the skipped bank last before declaring failure.
       const std::size_t skip = candidate_count > 1 && (allocation_random & 3u) == 0 ? 1 : 0;
-      bool allocated = false;
+      std::size_t allocations = 0;
       for (std::size_t offset = 0; offset < candidate_count; ++offset) {
         const auto table = first_table + ((skip + offset) % candidate_count);
         const auto index = last_result.indices[table];
@@ -135,11 +137,12 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
           tage_tags[table][index] = last_result.tags[table];
           tage_counters[table][index] = taken ? 0 : -1;
           tage_usefulness[table][index] = 0;
-          allocated = true;
-          break;
+          if (++allocations == 2) {
+            break;
+          }
         }
       }
-      if (!allocated) {
+      if (allocations == 0) {
         // Release stale protection under allocation pressure as well as via
         // periodic aging. No useful entry is overwritten on this attempt.
         for (auto table = first_table; table < TAGE_TABLES; ++table) {

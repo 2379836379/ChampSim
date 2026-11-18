@@ -70,7 +70,7 @@ struct my_perceptron_test_access {
     REQUIRE_FALSE(unproven.last_result.used_alternate);
     const auto unproven_saved = unproven.last_result;
     update(unproven, true);
-    REQUIRE(unproven.tage_counters[1][unproven_saved.indices[1]].value() == -1);
+    REQUIRE(unproven.tage_counters[1][unproven_saved.indices[1]].value() == -2);
 
     my_perceptron useful{nullptr};
     install(useful, 1, -2);
@@ -102,7 +102,7 @@ struct my_perceptron_test_access {
         ++allocated;
       }
     }
-    REQUIRE(allocated == 1);
+    REQUIRE(allocated == 2);
 
     my_perceptron blocked{nullptr};
     install(blocked, 2, -2);
