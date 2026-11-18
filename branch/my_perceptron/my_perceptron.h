@@ -87,6 +87,7 @@ class my_perceptron : champsim::modules::branch_predictor
   uint32_t usefulness_clock = 0;
   uint32_t allocation_random = 0x9e3779b9u;
   uint64_t path_history = 0;
+  uint64_t path_history_alt = 0;
 
   struct loop_entry {
     uint64_t tag = 0;

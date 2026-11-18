@@ -190,6 +190,9 @@ struct my_perceptron_test_access {
     p.predict_branch(pc);
     const auto first = p.last_result;
     update(p, true);
+    REQUIRE(p.path_history != 0);
+    REQUIRE(p.path_history_alt != 0);
+    REQUIRE(p.path_history != p.path_history_alt);
     p.predict_branch(pc);
     const auto second = p.last_result;
     bool changed = false;
