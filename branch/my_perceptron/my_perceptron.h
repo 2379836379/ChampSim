@@ -22,9 +22,9 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static int THRESHOLD = 1;
 
   // A small per-PC local history predictor complements the global perceptron.
-  constexpr static std::size_t LOCAL_HISTORY_SIZE = 1 << 12;
+  constexpr static std::size_t LOCAL_HISTORY_SIZE = 1 << 16;
   constexpr static bits LOCAL_HISTORY_INDEX_BITS{champsim::msl::lg2(LOCAL_HISTORY_SIZE)};
-  constexpr static std::size_t LOCAL_PATTERN_SIZE = 1 << 12;
+  constexpr static std::size_t LOCAL_PATTERN_SIZE = 1 << 16;
   constexpr static std::size_t CHOOSER_SIZE = TABLE_SIZE;
   constexpr static std::size_t LOOP_TABLE_SIZE = 1 << 12;
 
