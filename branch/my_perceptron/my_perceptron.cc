@@ -22,7 +22,7 @@ bool my_perceptron::predict_branch(champsim::address pc)
   result.local_history_value = local_history;
   result.local_pattern_index = (local_history ^ result.local_history_index) & (LOCAL_PATTERN_SIZE - 1);
   result.chooser_index = pc_hash;
-  result.bias_index = pc_hash;
+  result.bias_index = ((pc_value >> 2) ^ (pc_value >> 17)) & (CHOOSER_SIZE - 1);
   result.global_prediction = result.yout >= THRESHOLD;
   const auto bias = bias_counters[result.bias_index].value();
   result.bias_prediction = bias >= 0;
