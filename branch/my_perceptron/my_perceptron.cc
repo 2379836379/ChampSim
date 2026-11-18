@@ -17,8 +17,9 @@ bool my_perceptron::predict_branch(champsim::address pc)
   for (std::size_t table = TAGE_TABLES; table-- > 0;) {
     const auto index_history = index_histories[table].value();
     const auto tag_history = tag_histories[table].value();
-    const auto index = (pc_value ^ (pc_value >> (table + 2)) ^ index_history) & (TAGE_TABLE_SIZE - 1);
-    const auto tag = static_cast<uint16_t>(((pc_value >> 2) ^ (pc_value >> (table + 7)) ^ tag_history ^ (index_history >> 3)) & TAGE_TAG_MASK) + uint16_t{1};
+    const auto path_mix = path_history ^ (path_history >> (table + 1));
+    const auto index = (pc_value ^ (pc_value >> (table + 2)) ^ index_history ^ path_mix) & (TAGE_TABLE_SIZE - 1);
+    const auto tag = static_cast<uint16_t>(((pc_value >> 2) ^ (pc_value >> (table + 7)) ^ tag_history ^ (index_history >> 3) ^ (path_mix >> 4)) & TAGE_TAG_MASK) + uint16_t{1};
     result.indices[table] = static_cast<uint32_t>(index);
     result.tags[table] = static_cast<uint16_t>(tag);
 
@@ -98,6 +99,8 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
   for (auto& history : sc_histories) {
     history.push_back(taken);
   }
+  const auto pc_value = pc.to<uint64_t>();
+  path_history = (path_history << 7) ^ (pc_value >> 2) ^ branch_target.to<uint64_t>();
   auto& local_history = sc_local_histories[last_result.sc_local_slot];
   local_history = (local_history << 1) | static_cast<uint32_t>(taken);
 

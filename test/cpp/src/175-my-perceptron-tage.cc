@@ -181,6 +181,20 @@ struct my_perceptron_test_access {
       update(p, taken);
     }
   }
+
+  static void path_history_separates_contexts()
+  {
+    my_perceptron p{nullptr};
+    p.predict_branch(pc);
+    const auto first = p.last_result;
+    update(p, true);
+    p.predict_branch(pc);
+    const auto second = p.last_result;
+    bool changed = false;
+    for (std::size_t bank = 0; bank < p.TAGE_TABLES; ++bank)
+      changed = changed || first.indices[bank] != second.indices[bank] || first.tags[bank] != second.tags[bank];
+    REQUIRE(changed);
+  }
 };
 
 TEST_CASE("TAGE learns alternate selection only for weak unproven providers", "[my_perceptron]")
@@ -206,4 +220,9 @@ TEST_CASE("TAGE statistical corrector overrides and learns short-history pattern
 TEST_CASE("SC learns alternating local outcomes across identical global contexts", "[my_perceptron]")
 {
   my_perceptron_test_access::interleaved_local_pattern();
+}
+
+TEST_CASE("TAGE path history separates identical outcome contexts", "[my_perceptron]")
+{
+  my_perceptron_test_access::path_history_separates_contexts();
 }
