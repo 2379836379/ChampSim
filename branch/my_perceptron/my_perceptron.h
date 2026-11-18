@@ -14,10 +14,10 @@
 class my_perceptron : champsim::modules::branch_predictor
 {
   using bits = champsim::data::bits;                 // saves some typing
-  constexpr static std::size_t NTABLES = 16;         // this many tables
-  constexpr static bits MAXHIST{232};                // maximum history length
+  constexpr static std::size_t NTABLES = 32;         // more geometric history lengths improve long-range correlation
+  constexpr static bits MAXHIST{22500};              // maximum history length
   constexpr static bits MINHIST{3};                  // minimum history length (for table 1; table 0 is biases)
-  constexpr static std::size_t TABLE_SIZE = 1 << 18; // large tables prioritize accuracy over storage
+  constexpr static std::size_t TABLE_SIZE = 1 << 14; // large tables prioritize accuracy over storage
   constexpr static bits TABLE_INDEX_BITS{champsim::msl::lg2(TABLE_SIZE)};
   constexpr static int THRESHOLD = 1;
 
@@ -29,8 +29,10 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::size_t LOOP_TABLE_SIZE = 1 << 12;
 
   constexpr static std::array<bits, NTABLES> history_lengths = {
-      bits{},   MINHIST,  bits{4},  bits{6},  bits{8},  bits{10},  bits{14},  bits{19},
-      bits{26}, bits{36}, bits{49}, bits{67}, bits{91}, bits{125}, bits{170}, MAXHIST}; // geometric global history lengths
+      bits{},    MINHIST, bits{4},    bits{6},    bits{8},    bits{10},   bits{14},   bits{19},
+      bits{26},  bits{36}, bits{49},   bits{67},   bits{91},   bits{125},  bits{170},  bits{232},
+      bits{310}, bits{414}, bits{552}, bits{736}, bits{981},  bits{1307}, bits{1742}, bits{2320},
+      bits{3090}, bits{4110}, bits{5460}, bits{7250}, bits{9620}, bits{12780}, bits{16970}, MAXHIST}; // geometric global history lengths
 
   // tables of 8-bit weights
   std::array<std::array<champsim::msl::sfwcounter<8>, TABLE_SIZE>, NTABLES> tables{};
