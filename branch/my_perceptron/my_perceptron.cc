@@ -43,6 +43,16 @@ bool my_perceptron::predict_branch(champsim::address pc)
     result.used_alternate = result.provider_weak && result.provider_unuseful && use_alt_on_na[result.alt_selector_index].value() >= 0;
     result.tage_prediction = result.used_alternate ? alternate_prediction : result.provider_prediction;
   }
+
+  for (std::size_t table = 0; table < SC_TABLES; ++table) {
+    const auto history = sc_histories[table].value();
+    result.sc_indices[table] = static_cast<uint32_t>((pc_value ^ (pc_value >> (table + 3)) ^ history) & (SC_TABLE_SIZE - 1));
+    result.sc_sum += static_cast<int>(sc_counters[table][result.sc_indices[table]].value());
+  }
+  result.sc_prediction = result.sc_sum >= 0;
+  if (std::abs(result.sc_sum) >= SC_THRESHOLD && result.sc_prediction != result.tage_prediction) {
+    result.tage_prediction = result.sc_prediction;
+  }
   result.pre_loop_prediction = result.tage_prediction;
 
   const auto& loop = loop_table[result.loop_index];
@@ -69,6 +79,9 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
     history.push_back(taken);
   }
   for (auto& history : tag_histories) {
+    history.push_back(taken);
+  }
+  for (auto& history : sc_histories) {
     history.push_back(taken);
   }
 
@@ -113,6 +126,14 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
       } else {
         usefulness--;
       }
+    }
+  }
+
+  const auto sc_mispredicted = last_result.sc_prediction != taken;
+  const auto sc_near_threshold = std::abs(last_result.sc_sum) < SC_THRESHOLD;
+  if (sc_mispredicted || sc_near_threshold) {
+    for (std::size_t table = 0; table < SC_TABLES; ++table) {
+      sc_counters[table][last_result.sc_indices[table]] += taken ? 1 : -1;
     }
   }
 

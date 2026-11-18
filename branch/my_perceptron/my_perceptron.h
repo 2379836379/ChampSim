@@ -22,6 +22,9 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::size_t ALT_SELECTOR_SIZE = 1 << 14;
   constexpr static std::size_t TAGE_TABLES = 12;
   constexpr static std::size_t TAGE_TABLE_SIZE = 1 << 13;
+  constexpr static std::size_t SC_TABLES = 8;
+  constexpr static std::size_t SC_TABLE_SIZE = 1 << 13;
+  constexpr static int SC_THRESHOLD = 12;
   constexpr static bits TAGE_INDEX_BITS{champsim::msl::lg2(TAGE_TABLE_SIZE)};
   constexpr static bits TAGE_TAG_BITS{12};
   constexpr static std::size_t TAGE_TAG_MASK = (1 << 12) - 1;
@@ -30,6 +33,8 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::array<bits, TAGE_TABLES> history_lengths = {
       bits{4},    bits{8},    bits{16},   bits{32},   bits{64},   bits{128},
       bits{256},  bits{512},  bits{1024}, bits{2048}, bits{4096}, bits{8192}};
+  constexpr static std::array<bits, SC_TABLES> sc_history_lengths = {
+      bits{0}, bits{4}, bits{8}, bits{16}, bits{32}, bits{64}, bits{128}, bits{256}};
 
   using tage_index_history = folded_shift_register<TAGE_INDEX_BITS>;
   using tage_tag_history = folded_shift_register<TAGE_TAG_BITS>;
@@ -39,6 +44,7 @@ class my_perceptron : champsim::modules::branch_predictor
   using tage_counter_table = std::array<champsim::msl::sfwcounter<3>, TAGE_TABLE_SIZE>;
   using tage_tag_table = std::array<uint16_t, TAGE_TABLE_SIZE>;
   using tage_usefulness_table = std::array<champsim::msl::fwcounter<2>, TAGE_TABLE_SIZE>;
+  using sc_counter_table = std::array<champsim::msl::sfwcounter<6>, SC_TABLE_SIZE>;
 
   std::vector<champsim::msl::fwcounter<2>> base_table = std::vector<champsim::msl::fwcounter<2>>(BASE_TABLE_SIZE);
   // Nonnegative prefers alternate, but only for weak, unproven providers.
@@ -48,6 +54,7 @@ class my_perceptron : champsim::modules::branch_predictor
   std::vector<tage_counter_table> tage_counters = std::vector<tage_counter_table>(TAGE_TABLES);
   std::vector<tage_tag_table> tage_tags = std::vector<tage_tag_table>(TAGE_TABLES);
   std::vector<tage_usefulness_table> tage_usefulness = std::vector<tage_usefulness_table>(TAGE_TABLES);
+  std::vector<sc_counter_table> sc_counters = std::vector<sc_counter_table>(SC_TABLES);
 
   std::array<tage_index_history, TAGE_TABLES> index_histories = []() {
     decltype(index_histories) retval;
@@ -60,6 +67,13 @@ class my_perceptron : champsim::modules::branch_predictor
     decltype(tag_histories) retval;
     std::transform(std::cbegin(history_lengths), std::cend(history_lengths), std::begin(retval), [](const auto length) {
       return tage_tag_history{length};
+    });
+    return retval;
+  }();
+  std::array<tage_index_history, SC_TABLES> sc_histories = []() {
+    decltype(sc_histories) retval;
+    std::transform(std::cbegin(sc_history_lengths), std::cend(sc_history_lengths), std::begin(retval), [](const auto length) {
+      return tage_index_history{length};
     });
     return retval;
   }();
@@ -84,6 +98,9 @@ class my_perceptron : champsim::modules::branch_predictor
     bool provider_unuseful = false;
     bool used_alternate = false;
     uint64_t alt_selector_index = 0;
+    std::array<uint32_t, SC_TABLES> sc_indices{};
+    int sc_sum = 0;
+    bool sc_prediction = false;
     std::array<uint32_t, TAGE_TABLES> indices{};
     std::array<uint16_t, TAGE_TABLES> tags{};
     std::size_t provider = TAGE_TABLES;

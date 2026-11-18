@@ -130,6 +130,28 @@ struct my_perceptron_test_access {
     for (std::size_t bank = 0; bank < 11; ++bank)
       REQUIRE(longest.tage_tags[bank][longest_saved.indices[bank]] == 0);
   }
+
+  static void statistical_corrector()
+  {
+    my_perceptron p{nullptr};
+    REQUIRE_FALSE(p.predict_branch(pc)); // Cold TAGE/base predicts not-taken.
+    auto saved = p.last_result;
+    for (std::size_t table = 0; table < p.SC_TABLES; ++table)
+      p.sc_counters[table][saved.sc_indices[table]] = 2;
+    REQUIRE(p.predict_branch(pc)); // Strong short-history vote overrides TAGE.
+    REQUIRE(p.last_result.sc_sum == 16);
+
+    my_perceptron learning{nullptr};
+    REQUIRE_FALSE(learning.predict_branch(pc));
+    saved = learning.last_result;
+    for (std::size_t table = 0; table < learning.SC_TABLES; ++table)
+      learning.sc_counters[table][saved.sc_indices[table]] = -2;
+    REQUIRE_FALSE(learning.predict_branch(pc));
+    saved = learning.last_result;
+    update(learning, true);
+    for (std::size_t table = 0; table < learning.SC_TABLES; ++table)
+      REQUIRE(learning.sc_counters[table][saved.sc_indices[table]].value() == -1);
+  }
 };
 
 TEST_CASE("TAGE learns alternate selection only for weak unproven providers", "[my_perceptron]")
@@ -145,4 +167,9 @@ TEST_CASE("TAGE trains the appropriate alternate using prediction-time state", "
 TEST_CASE("TAGE allocates nearby and ages protected candidates on failure", "[my_perceptron]")
 {
   my_perceptron_test_access::allocation();
+}
+
+TEST_CASE("TAGE statistical corrector overrides and learns short-history patterns", "[my_perceptron]")
+{
+  my_perceptron_test_access::statistical_corrector();
 }
