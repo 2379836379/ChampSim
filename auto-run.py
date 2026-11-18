@@ -28,19 +28,19 @@ WARMUP_INSTRUCTIONS = 2_000_000
 SIMULATION_INSTRUCTIONS = 100_000_000
 EPSILON = 1e-12
 
-# BRANCH_TRACES = (
-#     "pred-1-1.champsimtrace.xz", "pred-1-2.champsimtrace.xz",
-#     "pred-2-1.champsimtrace.xz", "pred-2-2.champsimtrace.xz",
-#     "pred-2-3.champsimtrace.xz", "pred-2-4.champsimtrace.xz",
-#     "pred-2-5.champsimtrace.xz", "pred-2-6.champsimtrace.xz",
-#     "pred-3-1.champsimtrace.xz", "pred-4.champsimtrace.xz",
-#     "pred-5.champsimtrace.xz", "pred-6.champsimtrace.xz",
-#     "403.gcc-48B.champsimtrace.xz", "657.xz_s-56B.champsimtrace.xz",
-# )
-
 BRANCH_TRACES = (
+    "pred-1-1.champsimtrace.xz", "pred-1-2.champsimtrace.xz",
+    "pred-2-1.champsimtrace.xz", "pred-2-2.champsimtrace.xz",
+    "pred-2-3.champsimtrace.xz", "pred-2-4.champsimtrace.xz",
+    "pred-2-5.champsimtrace.xz", "pred-2-6.champsimtrace.xz",
+    "pred-3-1.champsimtrace.xz", "pred-4.champsimtrace.xz",
+    "pred-5.champsimtrace.xz", "pred-6.champsimtrace.xz",
     "403.gcc-48B.champsimtrace.xz", "657.xz_s-56B.champsimtrace.xz",
 )
+
+# BRANCH_TRACES = (
+#     "403.gcc-48B.champsimtrace.xz", "657.xz_s-56B.champsimtrace.xz",
+# )
 
 NUMBER = r"[0-9.+\-eE]+"
 

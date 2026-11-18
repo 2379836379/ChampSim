@@ -50,7 +50,12 @@ bool my_perceptron::predict_branch(champsim::address pc)
     result.sc_sum += static_cast<int>(sc_counters[table][result.sc_indices[table]].value());
   }
   result.sc_prediction = result.sc_sum >= 0;
-  if (std::abs(result.sc_sum) >= SC_THRESHOLD && result.sc_prediction != result.tage_prediction) {
+  result.sc_selector_index = ((pc_value >> 2) ^ (pc_value >> 13) ^ (pc_value >> 23)) & (SC_SELECTOR_SIZE - 1);
+  result.sc_disagrees = result.sc_prediction != result.tage_prediction;
+  if (std::abs(result.sc_sum) >= SC_THRESHOLD && result.sc_disagrees) {
+    result.used_sc = sc_selectors[result.sc_selector_index].value() >= 0;
+  }
+  if (result.used_sc) {
     result.tage_prediction = result.sc_prediction;
   }
   result.pre_loop_prediction = result.tage_prediction;
@@ -135,6 +140,9 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
     for (std::size_t table = 0; table < SC_TABLES; ++table) {
       sc_counters[table][last_result.sc_indices[table]] += taken ? 1 : -1;
     }
+  }
+  if (std::abs(last_result.sc_sum) >= SC_THRESHOLD && last_result.sc_disagrees) {
+    sc_selectors[last_result.sc_selector_index] += last_result.sc_prediction == taken ? 1 : -1;
   }
 
   // Allocate on a provider miss, even when the alternate happened to rescue

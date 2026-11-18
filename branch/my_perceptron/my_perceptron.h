@@ -24,6 +24,7 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::size_t TAGE_TABLE_SIZE = 1 << 13;
   constexpr static std::size_t SC_TABLES = 8;
   constexpr static std::size_t SC_TABLE_SIZE = 1 << 13;
+  constexpr static std::size_t SC_SELECTOR_SIZE = 1 << 14;
   constexpr static int SC_THRESHOLD = 12;
   constexpr static bits TAGE_INDEX_BITS{champsim::msl::lg2(TAGE_TABLE_SIZE)};
   constexpr static bits TAGE_TAG_BITS{12};
@@ -55,6 +56,7 @@ class my_perceptron : champsim::modules::branch_predictor
   std::vector<tage_tag_table> tage_tags = std::vector<tage_tag_table>(TAGE_TABLES);
   std::vector<tage_usefulness_table> tage_usefulness = std::vector<tage_usefulness_table>(TAGE_TABLES);
   std::vector<sc_counter_table> sc_counters = std::vector<sc_counter_table>(SC_TABLES);
+  std::vector<champsim::msl::sfwcounter<4>> sc_selectors = std::vector<champsim::msl::sfwcounter<4>>(SC_SELECTOR_SIZE);
 
   std::array<tage_index_history, TAGE_TABLES> index_histories = []() {
     decltype(index_histories) retval;
@@ -99,8 +101,11 @@ class my_perceptron : champsim::modules::branch_predictor
     bool used_alternate = false;
     uint64_t alt_selector_index = 0;
     std::array<uint32_t, SC_TABLES> sc_indices{};
+    uint64_t sc_selector_index = 0;
     int sc_sum = 0;
     bool sc_prediction = false;
+    bool sc_disagrees = false;
+    bool used_sc = false;
     std::array<uint32_t, TAGE_TABLES> indices{};
     std::array<uint16_t, TAGE_TABLES> tags{};
     std::size_t provider = TAGE_TABLES;

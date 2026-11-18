@@ -140,17 +140,23 @@ struct my_perceptron_test_access {
       p.sc_counters[table][saved.sc_indices[table]] = 2;
     REQUIRE(p.predict_branch(pc)); // Strong short-history vote overrides TAGE.
     REQUIRE(p.last_result.sc_sum == 16);
+    REQUIRE(p.last_result.used_sc);
+
+    p.sc_selectors[p.last_result.sc_selector_index] = -7;
+    REQUIRE_FALSE(p.predict_branch(pc)); // A trained selector can reject SC.
+    REQUIRE_FALSE(p.last_result.used_sc);
 
     my_perceptron learning{nullptr};
     REQUIRE_FALSE(learning.predict_branch(pc));
     saved = learning.last_result;
     for (std::size_t table = 0; table < learning.SC_TABLES; ++table)
-      learning.sc_counters[table][saved.sc_indices[table]] = -2;
-    REQUIRE_FALSE(learning.predict_branch(pc));
+      learning.sc_counters[table][saved.sc_indices[table]] = 2;
+    REQUIRE(learning.predict_branch(pc));
     saved = learning.last_result;
-    update(learning, true);
+    update(learning, false);
     for (std::size_t table = 0; table < learning.SC_TABLES; ++table)
-      REQUIRE(learning.sc_counters[table][saved.sc_indices[table]].value() == -1);
+      REQUIRE(learning.sc_counters[table][saved.sc_indices[table]].value() == 1);
+    REQUIRE(learning.sc_selectors[saved.sc_selector_index].value() == -1);
   }
 };
 
