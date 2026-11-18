@@ -15,7 +15,8 @@ bool my_perceptron::predict_branch(champsim::address pc)
   result.yout = std::inner_product(std::begin(tables), std::end(tables), std::begin(result.indices), 0, std::plus<>{},
                                    [](const auto& table, const auto& index) { return table.at(index).value(); });
 
-  result.local_history_index = pc.slice_lower<LOCAL_HISTORY_INDEX_BITS>().to<uint64_t>();
+  const auto pc_value = pc.to<uint64_t>();
+  result.local_history_index = ((pc_value >> 2) ^ (pc_value >> 14)) & (LOCAL_HISTORY_SIZE - 1);
   auto local_history = local_histories[result.local_history_index];
   result.local_history_value = local_history;
   result.local_pattern_index = (local_history ^ result.local_history_index) & (LOCAL_PATTERN_SIZE - 1);
