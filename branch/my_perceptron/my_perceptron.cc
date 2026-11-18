@@ -46,12 +46,26 @@ bool my_perceptron::predict_branch(champsim::address pc)
     const auto history = ghist_words[tage_history_slots[table]].value();
     const auto index = (pc_value ^ (pc_value >> (table + 3)) ^ history) & (TAGE_TABLE_SIZE - 1);
     const auto tag = static_cast<uint16_t>(((pc_value >> 2) ^ (pc_value >> (table + 11)) ^ (history * 0x9e37u)) & TAGE_TAG_MASK) + 1;
-    result.tage_indices[table] = index;
-    result.tage_tags[table] = tag;
-    if (result.tage_provider == TAGE_TABLES && tage_tags[table][index] == tag) {
-      result.tage_provider = table;
-      result.tage_prediction = tage_counters[table][index].value() >= 0;
+    result.tage_indices[table] = static_cast<uint32_t>(index);
+    result.tage_tags[table] = static_cast<uint16_t>(tag);
+    if (tage_tags[table][index] == tag) {
+      if (result.tage_provider == TAGE_TABLES) {
+        result.tage_provider = table;
+        result.tage_provider_prediction = tage_counters[table][index].value() >= 0;
+      } else if (result.tage_alternate == TAGE_TABLES) {
+        result.tage_alternate = table;
+        result.tage_alternate_prediction = tage_counters[table][index].value() >= 0;
+      }
     }
+  }
+  const bool alternate_prediction = result.tage_alternate == TAGE_TABLES ? result.base_prediction : result.tage_alternate_prediction;
+  result.tage_alternate_prediction = alternate_prediction;
+  if (result.tage_provider != TAGE_TABLES) {
+    const auto provider_counter = tage_counters[result.tage_provider][result.tage_indices[result.tage_provider]].value();
+    const bool provider_weak = provider_counter == 0 || provider_counter == -1;
+    result.tage_prediction = provider_weak && tage_usefulness[result.tage_provider][result.tage_indices[result.tage_provider]].value() == 0
+                                 ? alternate_prediction
+                                 : result.tage_provider_prediction;
   }
   last_result = result;
   if (result.use_loop) {
@@ -107,14 +121,30 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
   }
 
   if (last_result.tage_provider != TAGE_TABLES) {
-    auto& counter = tage_counters[last_result.tage_provider][last_result.tage_indices[last_result.tage_provider]];
+    const auto provider = last_result.tage_provider;
+    const auto index = last_result.tage_indices[provider];
+    auto& counter = tage_counters[provider][index];
     counter += taken ? 1 : -1;
+    if (last_result.tage_provider_prediction != last_result.tage_alternate_prediction) {
+      auto& usefulness = tage_usefulness[provider][index];
+      if (last_result.tage_provider_prediction == taken) {
+        usefulness++;
+      } else {
+        usefulness--;
+      }
+    }
   }
   if (last_result.tage_prediction != taken) {
-    const auto table = last_result.tage_provider == TAGE_TABLES ? TAGE_TABLES - 1 : last_result.tage_provider + 1;
-    auto& tag = tage_tags[table][last_result.tage_indices[table]];
-    tag = last_result.tage_tags[table];
-    tage_counters[table][last_result.tage_indices[table]] = taken ? 0 : -1;
+    const auto first_table = last_result.tage_provider == TAGE_TABLES ? 0 : last_result.tage_provider + 1;
+    for (std::size_t table = TAGE_TABLES; table-- > first_table;) {
+      const auto index = last_result.tage_indices[table];
+      if (tage_usefulness[table][index].value() == 0 || tage_tags[table][index] == 0) {
+        tage_tags[table][index] = last_result.tage_tags[table];
+        tage_counters[table][index] = taken ? 0 : -1;
+        tage_usefulness[table][index] = 0;
+        break;
+      }
+    }
   }
 
   if (taken) {

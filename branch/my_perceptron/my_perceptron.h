@@ -54,6 +54,7 @@ class my_perceptron : champsim::modules::branch_predictor
   std::array<champsim::msl::fwcounter<3>, CHOOSER_SIZE> chooser{};
   std::array<std::array<champsim::msl::sfwcounter<3>, TAGE_TABLE_SIZE>, TAGE_TABLES> tage_counters{};
   std::array<std::array<uint16_t, TAGE_TABLE_SIZE>, TAGE_TABLES> tage_tags{};
+  std::array<std::array<champsim::msl::fwcounter<2>, TAGE_TABLE_SIZE>, TAGE_TABLES> tage_usefulness{};
 
   struct loop_entry {
     uint64_t tag = 0;
@@ -89,6 +90,9 @@ class my_perceptron : champsim::modules::branch_predictor
     std::array<uint32_t, TAGE_TABLES> tage_indices{};
     std::array<uint16_t, TAGE_TABLES> tage_tags{};
     std::size_t tage_provider = TAGE_TABLES;
+    std::size_t tage_alternate = TAGE_TABLES;
+    bool tage_provider_prediction = false;
+    bool tage_alternate_prediction = false;
     bool tage_prediction = false;
   };
 
