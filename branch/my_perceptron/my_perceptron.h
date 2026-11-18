@@ -34,8 +34,8 @@ class my_perceptron : champsim::modules::branch_predictor
       bits{310}, bits{414}, bits{552}, bits{736}, bits{981},  bits{1307}, bits{1742}, bits{2320},
       bits{3090}, bits{4110}, bits{5460}, bits{7250}, bits{9620}, bits{12780}, bits{16970}, MAXHIST}; // geometric global history lengths
 
-  // tables of 8-bit weights
-  std::array<std::array<champsim::msl::sfwcounter<8>, TABLE_SIZE>, NTABLES> tables{};
+  // Wider weights preserve confidence for long-running stable branches.
+  std::array<std::array<champsim::msl::sfwcounter<10>, TABLE_SIZE>, NTABLES> tables{};
 
   // words that store the global history
   using history_type = folded_shift_register<TABLE_INDEX_BITS>;
