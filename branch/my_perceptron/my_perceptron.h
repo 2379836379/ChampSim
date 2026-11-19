@@ -25,7 +25,10 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::size_t SC_TABLES = 8;
   constexpr static std::array<unsigned, 3> sc_local_lengths = {4, 10, 20};
   constexpr static std::array<unsigned, 4> sc_alt_local_lengths = {3, 7, 14, 28};
-  constexpr static std::size_t SC_TOTAL_TABLES = SC_TABLES + sc_local_lengths.size() + sc_alt_local_lengths.size();
+  constexpr static std::array<unsigned, 3> sc_run_bits = {4, 7, 10};
+  constexpr static std::size_t SC_RUN_OFFSET = SC_TABLES + sc_local_lengths.size() + sc_alt_local_lengths.size();
+  constexpr static std::size_t SC_TOTAL_TABLES = SC_RUN_OFFSET + sc_run_bits.size();
+  constexpr static uint16_t SC_RUN_MAX = (1u << 10) - 1;
   constexpr static std::size_t SC_TABLE_SIZE = 1 << 13;
   constexpr static std::size_t SC_SELECTOR_SIZE = 1 << 14;
   constexpr static std::size_t SC_SELECTOR_CONTEXTS = 4;
@@ -65,6 +68,7 @@ class my_perceptron : champsim::modules::branch_predictor
   std::vector<tage_usefulness_table> tage_usefulness = std::vector<tage_usefulness_table>(TAGE_TABLES);
   std::vector<sc_counter_table> sc_counters = std::vector<sc_counter_table>(SC_TOTAL_TABLES);
   std::vector<uint32_t> sc_local_histories = std::vector<uint32_t>(SC_TABLE_SIZE);
+  std::vector<uint16_t> sc_run_lengths = std::vector<uint16_t>(SC_TABLE_SIZE);
   std::vector<uint32_t> sc_alt_local_histories = std::vector<uint32_t>(SC_TABLE_SIZE);
   // Separate trust for taken/not-taken and weak/strong selected TAGE predictions.
   std::vector<sc_selector_table> sc_selectors = std::vector<sc_selector_table>(SC_SELECTOR_CONTEXTS);

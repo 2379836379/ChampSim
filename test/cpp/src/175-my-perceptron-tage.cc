@@ -141,7 +141,7 @@ struct my_perceptron_test_access {
     for (std::size_t table = p.SC_TABLES; table < p.SC_TOTAL_TABLES; ++table)
       p.sc_counters[table][saved.sc_indices[table]] = 1;
     REQUIRE(p.predict_branch(pc)); // Strong short-history vote overrides TAGE.
-    REQUIRE(p.last_result.sc_sum == 23);
+    REQUIRE(p.last_result.sc_sum == 26);
     REQUIRE(p.last_result.used_sc);
 
     p.sc_selectors[p.last_result.sc_selector_context][p.last_result.sc_selector_index] = -7;
@@ -298,6 +298,44 @@ struct my_perceptron_test_access {
     REQUIRE(p.sc_train_threshold == p.SC_TRAIN_MIN);
     REQUIRE(p.sc_threshold_signal == 0);
   }
+
+  static void run_length_context()
+  {
+    my_perceptron p{nullptr};
+    auto step = [&](bool taken) {
+      p.predict_branch(pc);
+      update(p, taken);
+    };
+    for (int i = 0; i < 30; ++i)
+      step(true);
+    p.predict_branch(pc);
+    const auto at30 = p.last_result;
+    for (int i = 0; i < 30; ++i)
+      step(true);
+    p.predict_branch(pc);
+    const auto at60 = p.last_result;
+    REQUIRE(p.sc_run_lengths[at60.sc_local_slot] == 60);
+    // Existing local features cannot distinguish these two positions.
+    for (std::size_t table = p.SC_TABLES; table < p.SC_RUN_OFFSET; ++table)
+      REQUIRE(at30.sc_indices[table] == at60.sc_indices[table]);
+    for (std::size_t table = p.SC_RUN_OFFSET; table < p.SC_TOTAL_TABLES; ++table)
+      REQUIRE(at30.sc_indices[table] != at60.sc_indices[table]);
+
+    // Training must use prediction-time indices, before the direction resets.
+    set_sc_score(p, 1);
+    const auto saved = p.last_result;
+    update(p, false);
+    REQUIRE(p.sc_run_lengths[saved.sc_local_slot] == 1);
+    for (std::size_t table = p.SC_RUN_OFFSET; table < p.SC_TOTAL_TABLES; ++table)
+      REQUIRE(p.sc_counters[table][saved.sc_indices[table]].value() == -1);
+    step(false);
+    REQUIRE(p.sc_run_lengths[saved.sc_local_slot] == 2);
+    for (unsigned i = 0; i < p.SC_RUN_MAX + 10u; ++i)
+      step(false);
+    REQUIRE(p.sc_run_lengths[saved.sc_local_slot] == p.SC_RUN_MAX);
+    step(true);
+    REQUIRE(p.sc_run_lengths[saved.sc_local_slot] == 1);
+  }
 };
 
 TEST_CASE("TAGE learns alternate selection only for weak unproven providers", "[my_perceptron]")
@@ -338,4 +376,9 @@ TEST_CASE("TAGE path history separates identical outcome contexts", "[my_percept
 TEST_CASE("SC adapts training margin with bounded accumulated evidence", "[my_perceptron]")
 {
   my_perceptron_test_access::adaptive_training();
+}
+
+TEST_CASE("SC distinguishes long run positions and trains pre-update contexts", "[my_perceptron]")
+{
+  my_perceptron_test_access::run_length_context();
 }
