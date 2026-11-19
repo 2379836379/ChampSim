@@ -141,7 +141,7 @@ struct my_perceptron_test_access {
     for (std::size_t table = p.SC_TABLES; table < p.SC_TOTAL_TABLES; ++table)
       p.sc_counters[table][saved.sc_indices[table]] = 1;
     REQUIRE(p.predict_branch(pc)); // Strong short-history vote overrides TAGE.
-    REQUIRE(p.last_result.sc_sum == 26);
+    REQUIRE(p.last_result.sc_sum == 29);
     REQUIRE(p.last_result.used_sc);
 
     p.sc_selectors[p.last_result.sc_selector_context][p.last_result.sc_selector_index] = -7;
@@ -318,7 +318,7 @@ struct my_perceptron_test_access {
     // Existing local features cannot distinguish these two positions.
     for (std::size_t table = p.SC_TABLES; table < p.SC_RUN_OFFSET; ++table)
       REQUIRE(at30.sc_indices[table] == at60.sc_indices[table]);
-    for (std::size_t table = p.SC_RUN_OFFSET; table < p.SC_TOTAL_TABLES; ++table)
+    for (std::size_t table = p.SC_RUN_OFFSET; table < p.SC_PATH_OFFSET; ++table)
       REQUIRE(at30.sc_indices[table] != at60.sc_indices[table]);
 
     // Training must use prediction-time indices, before the direction resets.
@@ -335,6 +335,30 @@ struct my_perceptron_test_access {
     REQUIRE(p.sc_run_lengths[saved.sc_local_slot] == p.SC_RUN_MAX);
     step(true);
     REQUIRE(p.sc_run_lengths[saved.sc_local_slot] == 1);
+  }
+
+  static void path_windows()
+  {
+    my_perceptron left{nullptr}, right{nullptr};
+    auto step = [](my_perceptron& p, champsim::address where) {
+      p.predict_branch(where);
+      p.last_branch_result(where, champsim::address{}, false, BRANCH_CONDITIONAL);
+    };
+    step(left, champsim::address{0x4000});
+    step(right, champsim::address{0x4010});
+    for (unsigned age = 0; age <= 16; ++age) {
+      left.predict_branch(pc);
+      right.predict_branch(pc);
+      const auto& a = left.last_result.sc_indices;
+      const auto& b = right.last_result.sc_indices;
+      REQUIRE(std::equal(a.begin(), a.begin() + left.SC_PATH_OFFSET, b.begin()));
+      for (std::size_t i = 0; i < left.sc_path_bits.size(); ++i) {
+        const auto bank = left.SC_PATH_OFFSET + i;
+        REQUIRE((a[bank] != b[bank]) == (age < left.sc_path_bits[i] / 4));
+      }
+      step(left, champsim::address{0x8020});
+      step(right, champsim::address{0x8020});
+    }
   }
 };
 
@@ -381,4 +405,9 @@ TEST_CASE("SC adapts training margin with bounded accumulated evidence", "[my_pe
 TEST_CASE("SC distinguishes long run positions and trains pre-update contexts", "[my_perceptron]")
 {
   my_perceptron_test_access::run_length_context();
+}
+
+TEST_CASE("SC path windows remember predecessor addresses for 4, 8 and 16 branches", "[my_perceptron]")
+{
+  my_perceptron_test_access::path_windows();
 }

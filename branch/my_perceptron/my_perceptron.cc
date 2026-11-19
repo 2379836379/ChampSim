@@ -73,6 +73,16 @@ bool my_perceptron::predict_branch(champsim::address pc)
     const auto context = (count << 1) | (local_history & 1u);
     result.sc_indices[SC_RUN_OFFSET + i] = static_cast<uint32_t>((local_pc_hash ^ context) & (SC_TABLE_SIZE - 1));
   }
+  for (std::size_t i = 0; i < sc_path_bits.size(); ++i) {
+    auto recent = sc_path_history & (std::numeric_limits<uint64_t>::max() >> (64 - sc_path_bits[i]));
+    uint64_t folded = 0;
+    // Fold the whole window, including its oldest bits, into the table index.
+    while (recent != 0) {
+      folded ^= recent;
+      recent >>= champsim::msl::lg2(SC_TABLE_SIZE);
+    }
+    result.sc_indices[SC_PATH_OFFSET + i] = static_cast<uint32_t>((local_pc_hash ^ folded) & (SC_TABLE_SIZE - 1));
+  }
   for (std::size_t table = 0; table < SC_TOTAL_TABLES; ++table)
     result.sc_sum += static_cast<int>(sc_counters[table][result.sc_indices[table]].value());
   result.sc_prediction = result.sc_sum >= 0;
@@ -123,6 +133,10 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
     history.push_back(taken);
   }
   const auto pc_value = pc.to<uint64_t>();
+  // Only resolved conditional/OTHER branches enter this finite path window.
+  // The current outcome trains the indices saved before this update.
+  const auto path_token = (pc_value ^ (pc_value >> 4) ^ (pc_value >> 16) ^ (pc_value >> 32)) & 0xfu;
+  sc_path_history = (sc_path_history << 4) | path_token;
   path_history = (path_history << 7) ^ (pc_value >> 2) ^ branch_target.to<uint64_t>();
   path_history_alt = (path_history_alt << 11) ^ (pc_value * 0x9e3779b97f4a7c15ULL) ^ (branch_target.to<uint64_t>() >> 3);
   auto& local_history = sc_local_histories[last_result.sc_local_slot];

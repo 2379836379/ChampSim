@@ -27,7 +27,10 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::array<unsigned, 4> sc_alt_local_lengths = {3, 7, 14, 28};
   constexpr static std::array<unsigned, 3> sc_run_bits = {4, 7, 10};
   constexpr static std::size_t SC_RUN_OFFSET = SC_TABLES + sc_local_lengths.size() + sc_alt_local_lengths.size();
-  constexpr static std::size_t SC_TOTAL_TABLES = SC_RUN_OFFSET + sc_run_bits.size();
+  constexpr static std::size_t SC_PATH_OFFSET = SC_RUN_OFFSET + sc_run_bits.size();
+  // Four address-hash bits per branch: windows of 4, 8 and 16 branches.
+  constexpr static std::array<unsigned, 3> sc_path_bits = {16, 32, 64};
+  constexpr static std::size_t SC_TOTAL_TABLES = SC_PATH_OFFSET + sc_path_bits.size();
   constexpr static uint16_t SC_RUN_MAX = (1u << 10) - 1;
   constexpr static std::size_t SC_TABLE_SIZE = 1 << 13;
   constexpr static std::size_t SC_SELECTOR_SIZE = 1 << 14;
@@ -98,6 +101,7 @@ class my_perceptron : champsim::modules::branch_predictor
   uint32_t allocation_random = 0x9e3779b9u;
   uint64_t path_history = 0;
   uint64_t path_history_alt = 0;
+  uint64_t sc_path_history = 0;
   int sc_train_threshold = 24;
   int sc_threshold_signal = 0;
 
