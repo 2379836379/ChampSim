@@ -144,7 +144,7 @@ struct my_perceptron_test_access {
     REQUIRE(p.last_result.sc_sum == 23);
     REQUIRE(p.last_result.used_sc);
 
-    p.sc_selectors[p.last_result.sc_selector_index] = -7;
+    p.sc_selectors[p.last_result.sc_selector_context][p.last_result.sc_selector_index] = -7;
     REQUIRE_FALSE(p.predict_branch(pc)); // A trained selector can reject SC.
     REQUIRE_FALSE(p.last_result.used_sc);
 
@@ -158,7 +158,7 @@ struct my_perceptron_test_access {
     update(learning, false);
     for (std::size_t table = 0; table < learning.SC_TABLES; ++table)
       REQUIRE(learning.sc_counters[table][saved.sc_indices[table]].value() == 1);
-    REQUIRE(learning.sc_selectors[saved.sc_selector_index].value() == -1);
+    REQUIRE(learning.sc_selectors[saved.sc_selector_context][saved.sc_selector_index].value() == -1);
   }
 
   static void interleaved_local_pattern()
@@ -182,6 +182,45 @@ struct my_perceptron_test_access {
       }
       update(p, taken);
     }
+  }
+
+  static void context_selection()
+  {
+    my_perceptron p{nullptr};
+    p.predict_branch(pc);
+    const auto cold = p.last_result;
+    // At one PC, reject SC for strong NT but allow it for weak NT.
+    p.sc_counters[0][cold.sc_indices[0]] = p.SC_THRESHOLD;
+    REQUIRE(p.predict_branch(pc));
+    update(p, false);
+    p.sc_counters[0][cold.sc_indices[0]] = 31;
+    REQUIRE_FALSE(p.predict_branch(pc));
+    REQUIRE(p.last_result.sc_disagrees);
+    REQUIRE(std::abs(p.last_result.sc_sum) >= p.SC_THRESHOLD);
+    REQUIRE_FALSE(p.last_result.used_sc);
+    p.base_table[cold.base_index] = 1;
+    REQUIRE(p.predict_branch(pc));
+    REQUIRE(p.last_result.used_sc);
+
+    // All four contexts use the same PC slot but learn independently.
+    for (unsigned base = 0; base < 4; ++base) {
+      p.base_table[cold.base_index] = base;
+      p.predict_branch(pc);
+      constexpr std::array<unsigned, 4> expected{0, 1, 3, 2};
+      REQUIRE(p.last_result.sc_selector_context == expected[base]);
+      REQUIRE(p.last_result.sc_selector_index == cold.sc_selector_index);
+    }
+
+    install(p, 1, 3);  // Strong taken alternate.
+    install(p, 3, -1); // Weak NT provider.
+    p.sc_counters[0][cold.sc_indices[0]] = -32;
+    REQUIRE_FALSE(p.predict_branch(pc));
+    REQUIRE(p.last_result.used_alternate);
+    REQUIRE(p.last_result.used_sc);
+    REQUIRE(p.last_result.sc_selector_context == 2);
+    update(p, true);
+    REQUIRE(p.sc_selectors[2][cold.sc_selector_index].value() == -1);
+    REQUIRE(p.sc_selectors[1][cold.sc_selector_index].value() == 0);
   }
 
   static void path_history_separates_contexts()
@@ -225,6 +264,11 @@ TEST_CASE("TAGE statistical corrector overrides and learns short-history pattern
 TEST_CASE("SC learns alternating local outcomes across identical global contexts", "[my_perceptron]")
 {
   my_perceptron_test_access::interleaved_local_pattern();
+}
+
+TEST_CASE("SC chooser separates direction and confidence of the selected TAGE source", "[my_perceptron]")
+{
+  my_perceptron_test_access::context_selection();
 }
 
 TEST_CASE("TAGE path history separates identical outcome contexts", "[my_perceptron]")

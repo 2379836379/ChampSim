@@ -69,9 +69,16 @@ bool my_perceptron::predict_branch(champsim::address pc)
     result.sc_sum += static_cast<int>(sc_counters[table][result.sc_indices[table]].value());
   result.sc_prediction = result.sc_sum >= 0;
   result.sc_selector_index = ((pc_value >> 2) ^ (pc_value >> 13) ^ (pc_value >> 23)) & (SC_SELECTOR_SIZE - 1);
+  // Measure the prediction actually selected by use-alt, not just the provider.
+  const auto selected_bank = result.used_alternate ? result.alternate : result.provider;
+  const auto selected_counter = selected_bank == TAGE_TABLES
+                                    ? static_cast<int>(base_table[result.base_index].value()) - 2
+                                    : static_cast<int>(tage_counters[selected_bank][result.indices[selected_bank]].value());
+  const bool selected_weak = selected_counter == 0 || selected_counter == -1;
+  result.sc_selector_context = (result.tage_prediction ? 2u : 0u) + (selected_weak ? 1u : 0u);
   result.sc_disagrees = result.sc_prediction != result.tage_prediction;
   if (std::abs(result.sc_sum) >= SC_THRESHOLD && result.sc_disagrees) {
-    result.used_sc = sc_selectors[result.sc_selector_index].value() >= 0;
+    result.used_sc = sc_selectors[result.sc_selector_context][result.sc_selector_index].value() >= 0;
   }
   if (result.used_sc) {
     result.tage_prediction = result.sc_prediction;
@@ -167,7 +174,7 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
     }
   }
   if (std::abs(last_result.sc_sum) >= SC_THRESHOLD && last_result.sc_disagrees) {
-    sc_selectors[last_result.sc_selector_index] += last_result.sc_prediction == taken ? 1 : -1;
+    sc_selectors[last_result.sc_selector_context][last_result.sc_selector_index] += last_result.sc_prediction == taken ? 1 : -1;
   }
 
   // Allocate on a provider miss, even when the alternate happened to rescue
