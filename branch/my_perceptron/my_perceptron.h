@@ -30,6 +30,9 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::size_t SC_SELECTOR_SIZE = 1 << 14;
   constexpr static std::size_t SC_SELECTOR_CONTEXTS = 4;
   constexpr static int SC_THRESHOLD = 12;
+  constexpr static int SC_TRAIN_MIN = 8;
+  constexpr static int SC_TRAIN_MAX = 96;
+  constexpr static int SC_ADAPT_PERIOD = 32;
   constexpr static bits TAGE_INDEX_BITS{champsim::msl::lg2(TAGE_TABLE_SIZE)};
   constexpr static bits TAGE_TAG_BITS{12};
   constexpr static std::size_t TAGE_TAG_MASK = (1 << 12) - 1;
@@ -91,6 +94,8 @@ class my_perceptron : champsim::modules::branch_predictor
   uint32_t allocation_random = 0x9e3779b9u;
   uint64_t path_history = 0;
   uint64_t path_history_alt = 0;
+  int sc_train_threshold = 24;
+  int sc_threshold_signal = 0;
 
   struct loop_entry {
     uint64_t tag = 0;

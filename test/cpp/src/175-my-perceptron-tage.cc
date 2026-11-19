@@ -239,6 +239,65 @@ struct my_perceptron_test_access {
       changed = changed || first.indices[bank] != second.indices[bank] || first.tags[bank] != second.tags[bank];
     REQUIRE(changed);
   }
+
+  // Set a controlled SC margin without bypassing prediction-time bookkeeping.
+  static void set_sc_score(my_perceptron& p, int score)
+  {
+    p.predict_branch(pc);
+    for (std::size_t table = 0; table < p.SC_TOTAL_TABLES; ++table)
+      p.sc_counters[table][p.last_result.sc_indices[table]] = 0;
+    p.sc_counters[0][p.last_result.sc_indices[0]] = score;
+    p.predict_branch(pc);
+  }
+
+  static void adaptive_training()
+  {
+    my_perceptron p{nullptr};
+    REQUIRE(p.sc_train_threshold == 24);
+    set_sc_score(p, 11);
+    REQUIRE_FALSE(p.last_result.used_sc);
+    set_sc_score(p, 12);
+    REQUIRE(p.last_result.used_sc); // Override still uses 12, not theta.
+    auto saved = p.last_result;
+    update(p, true);
+    for (std::size_t table = 0; table < p.SC_TOTAL_TABLES; ++table)
+      REQUIRE(p.sc_counters[table][saved.sc_indices[table]].value() == (table == 0 ? 13 : 1));
+    REQUIRE(p.sc_threshold_signal == -1);
+
+    set_sc_score(p, 24);
+    saved = p.last_result;
+    update(p, true); // Correct at the margin: no training or adaptation.
+    REQUIRE(p.sc_counters[0][saved.sc_indices[0]].value() == 24);
+    REQUIRE(p.sc_threshold_signal == -1);
+    set_sc_score(p, -31);
+    saved = p.last_result;
+    update(p, true); // Wrong even beyond theta: always train.
+    REQUIRE(p.sc_counters[0][saved.sc_indices[0]].value() == -30);
+    REQUIRE(p.sc_threshold_signal == 0); // Opposite evidence cancels.
+
+    auto repeat = [&](int score, int count) {
+      for (int i = 0; i < count; ++i) {
+        set_sc_score(p, score);
+        update(p, true);
+      }
+    };
+    repeat(-31, p.SC_ADAPT_PERIOD - 1);
+    REQUIRE(p.sc_train_threshold == 24);
+    repeat(-31, 1);
+    REQUIRE(p.sc_train_threshold == 25);
+    REQUIRE(p.sc_threshold_signal == 0);
+    repeat(1, p.SC_ADAPT_PERIOD);
+    REQUIRE(p.sc_train_threshold == 24);
+
+    p.sc_train_threshold = p.SC_TRAIN_MAX;
+    repeat(-31, p.SC_ADAPT_PERIOD * 2);
+    REQUIRE(p.sc_train_threshold == p.SC_TRAIN_MAX);
+    REQUIRE(p.sc_threshold_signal == 0);
+    p.sc_train_threshold = p.SC_TRAIN_MIN;
+    repeat(1, p.SC_ADAPT_PERIOD * 2);
+    REQUIRE(p.sc_train_threshold == p.SC_TRAIN_MIN);
+    REQUIRE(p.sc_threshold_signal == 0);
+  }
 };
 
 TEST_CASE("TAGE learns alternate selection only for weak unproven providers", "[my_perceptron]")
@@ -274,4 +333,9 @@ TEST_CASE("SC chooser separates direction and confidence of the selected TAGE so
 TEST_CASE("TAGE path history separates identical outcome contexts", "[my_perceptron]")
 {
   my_perceptron_test_access::path_history_separates_contexts();
+}
+
+TEST_CASE("SC adapts training margin with bounded accumulated evidence", "[my_perceptron]")
+{
+  my_perceptron_test_access::adaptive_training();
 }

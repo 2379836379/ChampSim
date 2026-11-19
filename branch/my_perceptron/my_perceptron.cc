@@ -167,10 +167,20 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
   }
 
   const auto sc_mispredicted = last_result.sc_prediction != taken;
-  const auto sc_near_threshold = std::abs(last_result.sc_sum) < SC_THRESHOLD;
+  const auto sc_near_threshold = std::abs(last_result.sc_sum) < sc_train_threshold;
   if (sc_mispredicted || sc_near_threshold) {
     for (std::size_t table = 0; table < SC_TOTAL_TABLES; ++table) {
       sc_counters[table][last_result.sc_indices[table]] += taken ? 1 : -1;
+    }
+    // Errors call for a larger training margin; correct low-margin predictions
+    // call for less training. Only the net evidence adjusts theta.
+    sc_threshold_signal += sc_mispredicted ? 1 : -1;
+    if (sc_threshold_signal >= SC_ADAPT_PERIOD) {
+      sc_train_threshold = std::min(sc_train_threshold + 1, SC_TRAIN_MAX);
+      sc_threshold_signal = 0;
+    } else if (sc_threshold_signal <= -SC_ADAPT_PERIOD) {
+      sc_train_threshold = std::max(sc_train_threshold - 1, SC_TRAIN_MIN);
+      sc_threshold_signal = 0;
     }
   }
   if (std::abs(last_result.sc_sum) >= SC_THRESHOLD && last_result.sc_disagrees) {
