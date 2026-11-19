@@ -24,7 +24,7 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::size_t ALT_SELECTOR_SIZE = 1 << 14;
   constexpr static std::size_t TAGE_TABLES = 20;
   static_assert(3 * (TAGE_TABLES - 1) + 1 < 64, "Path hash shifts must fit uint64_t");
-  constexpr static std::size_t TAGE_TABLE_SIZE = 1 << 13;
+  constexpr static std::size_t TAGE_TABLE_SIZE = 1 << 14;
   constexpr static std::size_t SC_TABLES = 8;
   constexpr static std::array<unsigned, 3> sc_local_lengths = {4, 10, 20};
   constexpr static std::array<unsigned, 4> sc_alt_local_lengths = {3, 7, 14, 28};
@@ -43,8 +43,8 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static int SC_TRAIN_MAX = 96;
   constexpr static int SC_ADAPT_PERIOD = 32;
   constexpr static bits TAGE_INDEX_BITS{champsim::msl::lg2(TAGE_TABLE_SIZE)};
-  constexpr static bits TAGE_TAG_BITS{12};
-  constexpr static std::size_t TAGE_TAG_MASK = (1 << 12) - 1;
+  constexpr static bits TAGE_TAG_BITS{15};
+  constexpr static auto TAGE_TAG_MASK = champsim::msl::bitmask(TAGE_TAG_BITS);
   constexpr static std::size_t LOOP_TABLE_SIZE = 1 << 12;
 
   constexpr static std::array<bits, TAGE_TABLES> history_lengths = {
@@ -56,6 +56,7 @@ class my_perceptron : champsim::modules::branch_predictor
 
   using tage_index_history = folded_shift_register<TAGE_INDEX_BITS>;
   using tage_tag_history = folded_shift_register<TAGE_TAG_BITS>;
+  using sc_index_history = folded_shift_register<bits{champsim::msl::lg2(SC_TABLE_SIZE)}>;
 
   // All large tables are heap-backed so generated_environment compilation does
   // not materialize multi-megabyte predictor objects in template code.
@@ -96,10 +97,10 @@ class my_perceptron : champsim::modules::branch_predictor
     });
     return retval;
   }();
-  std::array<tage_index_history, SC_TABLES> sc_histories = []() {
+  std::array<sc_index_history, SC_TABLES> sc_histories = []() {
     decltype(sc_histories) retval;
     std::transform(std::cbegin(sc_history_lengths), std::cend(sc_history_lengths), std::begin(retval), [](const auto length) {
-      return tage_index_history{length};
+      return sc_index_history{length};
     });
     return retval;
   }();
