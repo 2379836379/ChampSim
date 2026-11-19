@@ -38,10 +38,6 @@ BRANCH_TRACES = (
     "403.gcc-48B.champsimtrace.xz", "657.xz_s-56B.champsimtrace.xz",
 )
 
-# BRANCH_TRACES = (
-#     "403.gcc-48B.champsimtrace.xz", "657.xz_s-56B.champsimtrace.xz",
-# )
-
 NUMBER = r"[0-9.+\-eE]+"
 
 
