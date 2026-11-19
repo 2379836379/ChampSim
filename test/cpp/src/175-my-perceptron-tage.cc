@@ -360,6 +360,51 @@ struct my_perceptron_test_access {
       step(right, champsim::address{0x8020});
     }
   }
+
+  static void gshare_base()
+  {
+    my_perceptron p{nullptr};
+    REQUIRE_FALSE(p.predict_branch(pc)); // Tie starts with the original bimodal base.
+    const auto initial = p.last_result;
+    REQUIRE_FALSE(initial.bimodal_prediction);
+    REQUIRE_FALSE(initial.gshare_prediction);
+    REQUIRE(initial.base_prediction == initial.bimodal_prediction);
+
+    p.gshare_table[initial.gshare_index] = 2;
+    REQUIRE_FALSE(p.predict_branch(pc)); // Chooser still trusts bimodal.
+    update(p, true);
+    REQUIRE(p.base_chooser[initial.base_chooser_index].value() == 1);
+    REQUIRE(p.base_table[initial.base_index].value() == 1);
+    REQUIRE(p.gshare_table[initial.gshare_index].value() == 3);
+
+    // Clear TAGE allocations so the next prediction exercises its base fallback.
+    for (auto& table : p.tage_tags)
+      table.fill(0);
+    p.predict_branch(pc);
+    const auto next_index = p.last_result.gshare_index;
+    REQUIRE(next_index != initial.gshare_index);
+    REQUIRE(p.gshare_table[next_index].value() == 0);
+    p.gshare_table[next_index] = 2;
+    p.predict_branch(pc);
+    REQUIRE(p.last_result.gshare_prediction);
+    REQUIRE(p.last_result.base_prediction == p.last_result.gshare_prediction);
+
+    // A correct bimodal disagreement trains the chooser back the other way.
+    update(p, false);
+    REQUIRE(p.base_chooser[initial.base_chooser_index].value() == 0);
+
+    my_perceptron fallback{nullptr};
+    install(fallback, 2, -1);
+    fallback.predict_branch(pc);
+    const auto alt = fallback.last_result;
+    REQUIRE(alt.used_alternate);
+    REQUIRE(alt.alternate == fallback.TAGE_TABLES);
+    fallback.gshare_table[alt.gshare_index] = 2;
+    fallback.predict_branch(pc);
+    update(fallback, true);
+    REQUIRE(fallback.gshare_table[alt.gshare_index].value() == 3);
+    REQUIRE(fallback.base_chooser[alt.base_chooser_index].value() == 1);
+  }
 };
 
 TEST_CASE("TAGE learns alternate selection only for weak unproven providers", "[my_perceptron]")
@@ -410,4 +455,9 @@ TEST_CASE("SC distinguishes long run positions and trains pre-update contexts", 
 TEST_CASE("SC path windows remember predecessor addresses for 4, 8 and 16 branches", "[my_perceptron]")
 {
   my_perceptron_test_access::path_windows();
+}
+
+TEST_CASE("TAGE base fallback selects and trains bimodal or gshare", "[my_perceptron]")
+{
+  my_perceptron_test_access::gshare_base();
 }

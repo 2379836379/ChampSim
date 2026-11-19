@@ -19,6 +19,8 @@ class my_perceptron : champsim::modules::branch_predictor
   using bits = champsim::data::bits;
 
   constexpr static std::size_t BASE_TABLE_SIZE = 1 << 14;
+  constexpr static std::size_t GSHARE_TABLE_SIZE = 1 << 14;
+  constexpr static std::size_t BASE_CHOOSER_SIZE = 1 << 14;
   constexpr static std::size_t ALT_SELECTOR_SIZE = 1 << 14;
   constexpr static std::size_t TAGE_TABLES = 12;
   constexpr static std::size_t TAGE_TABLE_SIZE = 1 << 13;
@@ -62,6 +64,8 @@ class my_perceptron : champsim::modules::branch_predictor
   using sc_selector_table = std::array<champsim::msl::sfwcounter<4>, SC_SELECTOR_SIZE>;
 
   std::vector<champsim::msl::fwcounter<2>> base_table = std::vector<champsim::msl::fwcounter<2>>(BASE_TABLE_SIZE);
+  std::vector<champsim::msl::fwcounter<2>> gshare_table = std::vector<champsim::msl::fwcounter<2>>(GSHARE_TABLE_SIZE);
+  std::vector<champsim::msl::sfwcounter<4>> base_chooser = std::vector<champsim::msl::sfwcounter<4>>(BASE_CHOOSER_SIZE);
   // Nonnegative prefers alternate, but only for weak, unproven providers.
   // Indexing by PC and provider prevents unrelated branches from training one
   // global use-alt decision in opposite directions.
@@ -117,7 +121,11 @@ class my_perceptron : champsim::modules::branch_predictor
 
   struct tage_result {
     uint64_t base_index = 0;
+    uint64_t gshare_index = 0;
+    uint64_t base_chooser_index = 0;
     bool base_prediction = false;
+    bool bimodal_prediction = false;
+    bool gshare_prediction = false;
     bool tage_prediction = false;
     bool provider_weak = false;
     bool provider_unuseful = false;

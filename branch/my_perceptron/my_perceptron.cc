@@ -6,10 +6,17 @@ bool my_perceptron::predict_branch(champsim::address pc)
 {
   const auto pc_value = pc.to<uint64_t>();
   const auto pc_hash = ((pc_value >> 2) ^ (pc_value >> 15) ^ (pc_value >> 29)) & (BASE_TABLE_SIZE - 1);
+  const auto ghist = index_histories[0].value();
 
   tage_result result;
   result.base_index = pc_hash;
-  result.base_prediction = base_table[result.base_index].value() >= 2;
+  result.gshare_index = (pc_hash ^ ghist) & (GSHARE_TABLE_SIZE - 1);
+  result.base_chooser_index = (pc_hash ^ (pc_hash >> 7) ^ (pc_hash >> 13)) & (BASE_CHOOSER_SIZE - 1);
+  result.bimodal_prediction = base_table[result.base_index].value() >= 2;
+  result.gshare_prediction = gshare_table[result.gshare_index].value() >= 2;
+  const bool prefer_gshare = base_chooser[result.base_chooser_index].value() > 0;
+  const auto base_counter = prefer_gshare ? gshare_table[result.gshare_index].value() : base_table[result.base_index].value();
+  result.base_prediction = base_counter >= 2;
   result.tage_prediction = result.base_prediction;
   result.pc_tag = pc_value;
   result.loop_index = ((pc_value >> 4) ^ (pc_value >> 16) ^ (pc_value >> 28)) & (LOOP_TABLE_SIZE - 1);
@@ -90,7 +97,7 @@ bool my_perceptron::predict_branch(champsim::address pc)
   // Measure the prediction actually selected by use-alt, not just the provider.
   const auto selected_bank = result.used_alternate ? result.alternate : result.provider;
   const auto selected_counter = selected_bank == TAGE_TABLES
-                                    ? static_cast<int>(base_table[result.base_index].value()) - 2
+                                    ? static_cast<int>(base_counter) - 2
                                     : static_cast<int>(tage_counters[selected_bank][result.indices[selected_bank]].value());
   const bool selected_weak = selected_counter == 0 || selected_counter == -1;
   result.sc_selector_context = (result.tage_prediction ? 2u : 0u) + (selected_weak ? 1u : 0u);
@@ -160,9 +167,14 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
     usefulness_clock = 0;
   }
 
-  if (last_result.provider == TAGE_TABLES) {
+  if (last_result.provider == TAGE_TABLES || (last_result.used_alternate && last_result.alternate == TAGE_TABLES)) {
     base_table[last_result.base_index] += taken ? 1 : -1;
-  } else {
+    gshare_table[last_result.gshare_index] += taken ? 1 : -1;
+    if (last_result.bimodal_prediction != last_result.gshare_prediction) {
+      base_chooser[last_result.base_chooser_index] += last_result.gshare_prediction == taken ? 1 : -1;
+    }
+  }
+  if (last_result.provider != TAGE_TABLES) {
     const auto provider = last_result.provider;
     const auto index = last_result.indices[provider];
     auto& counter = tage_counters[provider][index];
@@ -170,12 +182,8 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
 
     // Use prediction-time state: training/aging may change weakness or u. The
     // alternate is trained only when it was actually selected for this branch.
-    if (last_result.used_alternate) {
-      if (last_result.alternate != TAGE_TABLES) {
-        tage_counters[last_result.alternate][last_result.indices[last_result.alternate]] += taken ? 1 : -1;
-      } else {
-        base_table[last_result.base_index] += taken ? 1 : -1;
-      }
+    if (last_result.used_alternate && last_result.alternate != TAGE_TABLES) {
+      tage_counters[last_result.alternate][last_result.indices[last_result.alternate]] += taken ? 1 : -1;
     }
 
     if (last_result.provider_weak && last_result.provider_unuseful &&
