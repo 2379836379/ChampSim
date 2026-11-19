@@ -394,6 +394,91 @@ struct my_perceptron_test_access {
     }
   }
 
+  static void long_loops()
+  {
+    for (bool body : {false, true}) {
+      for (unsigned period : {256u, 65536u, 65538u}) {
+        CAPTURE(body, period);
+        my_perceptron::loop_entry e{};
+        e.body_direction = !body; // Cold start on the exception.
+        e.observe(!body);
+        for (int cycle = 0; cycle < 3; ++cycle) {
+          bool correct_body = true;
+          for (unsigned i = 1; i < period; ++i) {
+            if (cycle == 2 && e.predict() != body)
+              correct_body = false;
+            e.observe(body);
+          }
+          REQUIRE(correct_body);
+          if (cycle == 2)
+            REQUIRE(e.predict() == !body);
+          e.observe(!body);
+          REQUIRE(e.trip_count == period - 1);
+          REQUIRE(e.confidence.value() == cycle + 1);
+        }
+
+        // An early exception seeds a new candidate but cannot override yet.
+        e.observe(body);
+        e.observe(body);
+        e.observe(!body);
+        REQUIRE(e.trip_count == 2);
+        REQUIRE(e.confidence.value() == 1);
+        e.observe(body);
+        e.observe(body);
+        e.observe(body); // Missing exception invalidates even the candidate.
+        REQUIRE(e.trip_count == 0);
+        e.observe(!body);
+        e.observe(!body);
+        REQUIRE(e.body_direction == !body);
+        REQUIRE(e.current_count == 2);
+        REQUIRE(e.trip_count == 0);
+        e.current_count = std::numeric_limits<uint32_t>::max();
+        e.observe(!body);
+        e.observe(body);
+        REQUIRE(e.trip_count == 0);
+        REQUIRE(e.current_count == 0);
+      }
+    }
+  }
+
+  static void loop_override()
+  {
+    for (bool body : {false, true}) {
+      my_perceptron p{nullptr};
+      auto step = [&](bool taken) {
+        p.predict_branch(pc);
+        update(p, taken);
+      };
+      for (int cycle = 0; cycle < 3; ++cycle) {
+        for (int i = 0; i < 7; ++i)
+          step(body);
+        // Force the underlying prediction to miss the exception so that the
+        // loop chooser can earn trust on a disagreement, even in shadow mode.
+        set_sc_score(p, body ? 31 : -32);
+        p.sc_selectors[p.last_result.sc_selector_context][p.last_result.sc_selector_index] = 7;
+        const auto prediction = p.predict_branch(pc);
+        REQUIRE(p.last_result.pre_loop_prediction == body);
+        REQUIRE(p.last_result.use_loop == (cycle == 2));
+        REQUIRE(prediction == (cycle == 2 ? !body : body));
+        update(p, cycle == 2 ? body : !body); // Last exception is missing.
+      }
+      const auto after_miss = p.predict_branch(pc);
+      REQUIRE_FALSE(p.last_result.use_loop);
+      REQUIRE(after_miss == p.last_result.pre_loop_prediction);
+      update(p, !body);
+      constexpr champsim::address alias{0x123457};
+      const auto slot = p.last_result.loop_index;
+      p.predict_branch(alias);
+      REQUIRE(p.last_result.loop_index == slot);
+      REQUIRE_FALSE(p.last_result.loop_prediction_valid);
+      p.last_branch_result(alias, {}, !body, BRANCH_CONDITIONAL);
+      REQUIRE(p.loop_table[slot].current_count == 1);
+      REQUIRE(p.loop_table[slot].body_direction == !body);
+      REQUIRE(p.loop_table[slot].trip_count == 0);
+      REQUIRE(p.loop_table[slot].chooser.value() == 0);
+    }
+  }
+
   static void gshare_base()
   {
     my_perceptron p{nullptr};
@@ -498,4 +583,14 @@ TEST_CASE("SC path windows remember predecessor addresses for 4, 8 and 16 branch
 TEST_CASE("TAGE base fallback selects and trains bimodal or gshare", "[my_perceptron]")
 {
   my_perceptron_test_access::gshare_base();
+}
+
+TEST_CASE("Loop entries learn long periods in either direction", "[my_perceptron]")
+{
+  my_perceptron_test_access::long_loops();
+}
+
+TEST_CASE("Loop chooser overrides on confirmed periods and falls back on a miss", "[my_perceptron]")
+{
+  my_perceptron_test_access::loop_override();
 }

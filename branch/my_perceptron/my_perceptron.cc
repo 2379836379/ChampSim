@@ -113,8 +113,8 @@ bool my_perceptron::predict_branch(champsim::address pc)
   const auto& loop = loop_table[result.loop_index];
   if (loop.valid && loop.tag == result.pc_tag && loop.trip_count >= 2) {
     result.loop_prediction_valid = true;
-    result.loop_prediction = loop.current_count < loop.trip_count;
-    result.use_loop = loop.confidence.value() >= 1 && loop.chooser.value() >= 1;
+    result.loop_prediction = loop.predict();
+    result.use_loop = loop.confidence.value() >= 2 && loop.chooser.value() >= 1;
   }
 
   last_result = result;
@@ -264,6 +264,7 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
     loop = loop_entry{};
     loop.valid = true;
     loop.tag = last_result.pc_tag;
+    loop.body_direction = taken;
   }
 
   if (last_result.loop_prediction_valid && last_result.loop_prediction != last_result.pre_loop_prediction) {
@@ -274,26 +275,37 @@ void my_perceptron::last_branch_result(champsim::address pc, champsim::address b
     }
   }
 
-  if (taken) {
-    if (loop.trip_count != 0 && loop.current_count >= loop.trip_count) {
-      loop.confidence = 0;
+  loop.observe(taken);
+}
+
+void my_perceptron::loop_entry::observe(bool taken)
+{
+  // A saturated run has no exact length and must not seed a period.
+  constexpr auto saturated = std::numeric_limits<uint32_t>::max();
+  if (taken == body_direction) {
+    if (trip_count != 0 && current_count == trip_count) {
+      trip_count = 0; // Expected exception did not arrive.
+      confidence = 0;
     }
-    if (loop.current_count < std::numeric_limits<uint32_t>::max()) {
-      ++loop.current_count;
-    }
+    if (current_count < saturated)
+      ++current_count;
+  } else if (current_count == 0) {
+    // Two consecutive exceptions are the start of a run in the other direction.
+    body_direction = taken;
+    current_count = 2;
+    trip_count = 0;
+    confidence = 0;
+    chooser = 0;
   } else {
-    if (loop.current_count >= 2 && loop.trip_count == loop.current_count) {
-      if (last_result.loop_prediction_valid && !last_result.loop_prediction) {
-        loop.confidence++;
-      }
+    if (current_count < 2 || current_count == saturated) {
+      trip_count = 0;
+      confidence = 0;
+    } else if (current_count == trip_count) {
+      confidence++;
     } else {
-      loop.trip_count = loop.current_count;
-      loop.confidence = 0;
+      trip_count = current_count;
+      confidence = 1;
     }
-    if (loop.current_count < 2) {
-      loop.trip_count = 0;
-      loop.confidence = 0;
-    }
-    loop.current_count = 0;
+    current_count = 0;
   }
 }

@@ -118,6 +118,10 @@ class my_perceptron : champsim::modules::branch_predictor
     champsim::msl::fwcounter<2> confidence{};
     champsim::msl::fwcounter<2> chooser{};
     bool valid = false;
+    bool body_direction = false;
+
+    bool predict() const { return current_count == trip_count ? !body_direction : body_direction; }
+    void observe(bool taken);
   };
   std::array<loop_entry, LOOP_TABLE_SIZE> loop_table{};
 
