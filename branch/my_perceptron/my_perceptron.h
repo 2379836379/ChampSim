@@ -24,7 +24,7 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::size_t ALT_SELECTOR_SIZE = 1 << 14;
   constexpr static std::size_t TAGE_TABLES = 20;
   static_assert(3 * (TAGE_TABLES - 1) + 1 < 64, "Path hash shifts must fit uint64_t");
-  constexpr static std::size_t TAGE_TABLE_SIZE = 1 << 14;
+  constexpr static std::size_t TAGE_TABLE_SIZE = 1 << 15;
   constexpr static std::size_t SC_TABLES = 8;
   constexpr static std::array<unsigned, 3> sc_local_lengths = {4, 10, 20};
   constexpr static std::array<unsigned, 4> sc_alt_local_lengths = {3, 7, 14, 28};
@@ -37,7 +37,7 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static uint16_t SC_RUN_MAX = (1u << 10) - 1;
   constexpr static std::size_t SC_WEIGHT_TABLE_SIZE = 1 << 14;
   constexpr static std::size_t SC_LOCAL_HISTORY_SIZE = 1 << 14;
-  constexpr static std::size_t SC_SELECTOR_SIZE = 1 << 14;
+  constexpr static std::size_t SC_SELECTOR_SIZE = 1 << 15;
   constexpr static std::size_t SC_SELECTOR_CONTEXTS = 4;
   constexpr static int SC_THRESHOLD = 12;
   constexpr static int SC_TRAIN_MIN = 8;
@@ -46,7 +46,7 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static bits TAGE_INDEX_BITS{champsim::msl::lg2(TAGE_TABLE_SIZE)};
   constexpr static bits TAGE_TAG_BITS{15};
   constexpr static auto TAGE_TAG_MASK = champsim::msl::bitmask(TAGE_TAG_BITS);
-  constexpr static std::size_t LOOP_TABLE_SIZE = 1 << 12;
+  constexpr static std::size_t LOOP_TABLE_SIZE = 1 << 13;
 
   constexpr static std::array<bits, TAGE_TABLES> history_lengths = {
       bits{4},   bits{8},   bits{12},  bits{16},  bits{24},   bits{32},   bits{48},
