@@ -54,23 +54,23 @@ bool my_perceptron::predict_branch(champsim::address pc)
 
   for (std::size_t table = 0; table < SC_TABLES; ++table) {
     const auto history = sc_histories[table].value();
-    result.sc_indices[table] = static_cast<uint32_t>((pc_value ^ (pc_value >> (table + 3)) ^ history) & (SC_TABLE_SIZE - 1));
+    result.sc_indices[table] = static_cast<uint32_t>((pc_value ^ (pc_value >> (table + 3)) ^ history) & (SC_WEIGHT_TABLE_SIZE - 1));
   }
   const auto local_pc_hash = pc_value ^ (pc_value >> 13) ^ (pc_value >> 26);
-  result.sc_local_slot = static_cast<uint32_t>(local_pc_hash & (SC_TABLE_SIZE - 1));
+  result.sc_local_slot = static_cast<uint32_t>(local_pc_hash & (SC_LOCAL_HISTORY_SIZE - 1));
   const auto local_history = sc_local_histories[result.sc_local_slot];
   for (std::size_t i = 0; i < sc_local_lengths.size(); ++i) {
     const auto recent = local_history & ((uint32_t{1} << sc_local_lengths[i]) - 1);
-    const auto folded = recent ^ (recent >> champsim::msl::lg2(SC_TABLE_SIZE));
-    result.sc_indices[SC_TABLES + i] = static_cast<uint32_t>((local_pc_hash ^ folded) & (SC_TABLE_SIZE - 1));
+    const auto folded = recent ^ (recent >> champsim::msl::lg2(SC_WEIGHT_TABLE_SIZE));
+    result.sc_indices[SC_TABLES + i] = static_cast<uint32_t>((local_pc_hash ^ folded) & (SC_WEIGHT_TABLE_SIZE - 1));
   }
   const auto alt_local_pc_hash = (pc_value >> 3) ^ (pc_value >> 11) ^ (pc_value >> 24);
-  result.sc_alt_local_slot = static_cast<uint32_t>(alt_local_pc_hash & (SC_TABLE_SIZE - 1));
+  result.sc_alt_local_slot = static_cast<uint32_t>(alt_local_pc_hash & (SC_LOCAL_HISTORY_SIZE - 1));
   const auto alt_local_history = sc_alt_local_histories[result.sc_alt_local_slot];
   for (std::size_t i = 0; i < sc_alt_local_lengths.size(); ++i) {
     const auto recent = alt_local_history & ((uint32_t{1} << sc_alt_local_lengths[i]) - 1);
-    const auto folded = recent ^ (recent >> champsim::msl::lg2(SC_TABLE_SIZE));
-    result.sc_indices[SC_TABLES + sc_local_lengths.size() + i] = static_cast<uint32_t>((alt_local_pc_hash ^ folded) & (SC_TABLE_SIZE - 1));
+    const auto folded = recent ^ (recent >> champsim::msl::lg2(SC_WEIGHT_TABLE_SIZE));
+    result.sc_indices[SC_TABLES + sc_local_lengths.size() + i] = static_cast<uint32_t>((alt_local_pc_hash ^ folded) & (SC_WEIGHT_TABLE_SIZE - 1));
   }
   // A long run has identical local direction bits at many iteration positions.
   // Keep its length and direction as a separate SC feature.
@@ -78,7 +78,7 @@ bool my_perceptron::predict_branch(champsim::address pc)
   for (std::size_t i = 0; i < sc_run_bits.size(); ++i) {
     const auto count = run_length & ((uint32_t{1} << sc_run_bits[i]) - 1);
     const auto context = (count << 1) | (local_history & 1u);
-    result.sc_indices[SC_RUN_OFFSET + i] = static_cast<uint32_t>((local_pc_hash ^ context) & (SC_TABLE_SIZE - 1));
+    result.sc_indices[SC_RUN_OFFSET + i] = static_cast<uint32_t>((local_pc_hash ^ context) & (SC_WEIGHT_TABLE_SIZE - 1));
   }
   for (std::size_t i = 0; i < sc_path_bits.size(); ++i) {
     auto recent = sc_path_history & (std::numeric_limits<uint64_t>::max() >> (64 - sc_path_bits[i]));
@@ -86,9 +86,9 @@ bool my_perceptron::predict_branch(champsim::address pc)
     // Fold the whole window, including its oldest bits, into the table index.
     while (recent != 0) {
       folded ^= recent;
-      recent >>= champsim::msl::lg2(SC_TABLE_SIZE);
+      recent >>= champsim::msl::lg2(SC_WEIGHT_TABLE_SIZE);
     }
-    result.sc_indices[SC_PATH_OFFSET + i] = static_cast<uint32_t>((local_pc_hash ^ folded) & (SC_TABLE_SIZE - 1));
+    result.sc_indices[SC_PATH_OFFSET + i] = static_cast<uint32_t>((local_pc_hash ^ folded) & (SC_WEIGHT_TABLE_SIZE - 1));
   }
   for (std::size_t table = 0; table < SC_TOTAL_TABLES; ++table)
     result.sc_sum += static_cast<int>(sc_counters[table][result.sc_indices[table]].value());

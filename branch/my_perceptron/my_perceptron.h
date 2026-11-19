@@ -35,7 +35,8 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::array<unsigned, 3> sc_path_bits = {16, 32, 64};
   constexpr static std::size_t SC_TOTAL_TABLES = SC_PATH_OFFSET + sc_path_bits.size();
   constexpr static uint16_t SC_RUN_MAX = (1u << 10) - 1;
-  constexpr static std::size_t SC_TABLE_SIZE = 1 << 13;
+  constexpr static std::size_t SC_WEIGHT_TABLE_SIZE = 1 << 14;
+  constexpr static std::size_t SC_LOCAL_HISTORY_SIZE = 1 << 13;
   constexpr static std::size_t SC_SELECTOR_SIZE = 1 << 14;
   constexpr static std::size_t SC_SELECTOR_CONTEXTS = 4;
   constexpr static int SC_THRESHOLD = 12;
@@ -56,14 +57,14 @@ class my_perceptron : champsim::modules::branch_predictor
 
   using tage_index_history = folded_shift_register<TAGE_INDEX_BITS>;
   using tage_tag_history = folded_shift_register<TAGE_TAG_BITS>;
-  using sc_index_history = folded_shift_register<bits{champsim::msl::lg2(SC_TABLE_SIZE)}>;
+  using sc_index_history = folded_shift_register<bits{champsim::msl::lg2(SC_WEIGHT_TABLE_SIZE)}>;
 
   // All large tables are heap-backed so generated_environment compilation does
   // not materialize multi-megabyte predictor objects in template code.
   using tage_counter_table = std::array<champsim::msl::sfwcounter<3>, TAGE_TABLE_SIZE>;
   using tage_tag_table = std::array<uint16_t, TAGE_TABLE_SIZE>;
   using tage_usefulness_table = std::array<champsim::msl::fwcounter<2>, TAGE_TABLE_SIZE>;
-  using sc_counter_table = std::array<champsim::msl::sfwcounter<6>, SC_TABLE_SIZE>;
+  using sc_counter_table = std::array<champsim::msl::sfwcounter<6>, SC_WEIGHT_TABLE_SIZE>;
   using sc_selector_table = std::array<champsim::msl::sfwcounter<4>, SC_SELECTOR_SIZE>;
 
   std::vector<champsim::msl::fwcounter<2>> base_table = std::vector<champsim::msl::fwcounter<2>>(BASE_TABLE_SIZE);
@@ -77,9 +78,9 @@ class my_perceptron : champsim::modules::branch_predictor
   std::vector<tage_tag_table> tage_tags = std::vector<tage_tag_table>(TAGE_TABLES);
   std::vector<tage_usefulness_table> tage_usefulness = std::vector<tage_usefulness_table>(TAGE_TABLES);
   std::vector<sc_counter_table> sc_counters = std::vector<sc_counter_table>(SC_TOTAL_TABLES);
-  std::vector<uint32_t> sc_local_histories = std::vector<uint32_t>(SC_TABLE_SIZE);
-  std::vector<uint16_t> sc_run_lengths = std::vector<uint16_t>(SC_TABLE_SIZE);
-  std::vector<uint32_t> sc_alt_local_histories = std::vector<uint32_t>(SC_TABLE_SIZE);
+  std::vector<uint32_t> sc_local_histories = std::vector<uint32_t>(SC_LOCAL_HISTORY_SIZE);
+  std::vector<uint16_t> sc_run_lengths = std::vector<uint16_t>(SC_LOCAL_HISTORY_SIZE);
+  std::vector<uint32_t> sc_alt_local_histories = std::vector<uint32_t>(SC_LOCAL_HISTORY_SIZE);
   // Separate trust for taken/not-taken and weak/strong selected TAGE predictions.
   std::vector<sc_selector_table> sc_selectors = std::vector<sc_selector_table>(SC_SELECTOR_CONTEXTS);
 
