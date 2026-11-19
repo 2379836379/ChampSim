@@ -36,7 +36,7 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::size_t SC_TOTAL_TABLES = SC_PATH_OFFSET + sc_path_bits.size();
   constexpr static uint16_t SC_RUN_MAX = (1u << 10) - 1;
   constexpr static std::size_t SC_WEIGHT_TABLE_SIZE = 1 << 14;
-  constexpr static std::size_t SC_LOCAL_HISTORY_SIZE = 1 << 13;
+  constexpr static std::size_t SC_LOCAL_HISTORY_SIZE = 1 << 14;
   constexpr static std::size_t SC_SELECTOR_SIZE = 1 << 14;
   constexpr static std::size_t SC_SELECTOR_CONTEXTS = 4;
   constexpr static int SC_THRESHOLD = 12;
