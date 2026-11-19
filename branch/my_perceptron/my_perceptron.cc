@@ -5,11 +5,11 @@
 bool my_perceptron::predict_branch(champsim::address pc)
 {
   const auto pc_value = pc.to<uint64_t>();
-  const auto pc_hash = ((pc_value >> 2) ^ (pc_value >> 15) ^ (pc_value >> 29)) & (BASE_TABLE_SIZE - 1);
+  const auto pc_hash = (pc_value >> 2) ^ (pc_value >> 15) ^ (pc_value >> 29);
   const auto ghist = index_histories[0].value();
 
   tage_result result;
-  result.base_index = pc_hash;
+  result.base_index = pc_hash & (BASE_TABLE_SIZE - 1);
   result.gshare_index = (pc_hash ^ ghist) & (GSHARE_TABLE_SIZE - 1);
   result.base_chooser_index = (pc_hash ^ (pc_hash >> 7) ^ (pc_hash >> 13)) & (BASE_CHOOSER_SIZE - 1);
   result.bimodal_prediction = base_table[result.base_index].value() >= 2;

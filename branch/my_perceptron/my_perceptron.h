@@ -18,10 +18,10 @@ class my_perceptron : champsim::modules::branch_predictor
   friend struct my_perceptron_test_access;
   using bits = champsim::data::bits;
 
-  constexpr static std::size_t BASE_TABLE_SIZE = 1 << 14;
-  constexpr static std::size_t GSHARE_TABLE_SIZE = 1 << 14;
-  constexpr static std::size_t BASE_CHOOSER_SIZE = 1 << 14;
-  constexpr static std::size_t ALT_SELECTOR_SIZE = 1 << 14;
+  constexpr static std::size_t BASE_TABLE_SIZE = 1 << 16;
+  constexpr static std::size_t GSHARE_TABLE_SIZE = 1 << 17;
+  constexpr static std::size_t BASE_CHOOSER_SIZE = 1 << 16;
+  constexpr static std::size_t ALT_SELECTOR_SIZE = 1 << 16;
   constexpr static std::size_t TAGE_TABLES = 20;
   static_assert(3 * (TAGE_TABLES - 1) + 1 < 64, "Path hash shifts must fit uint64_t");
   constexpr static std::size_t TAGE_TABLE_SIZE = 1 << 15;
@@ -35,7 +35,7 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::array<unsigned, 3> sc_path_bits = {16, 32, 64};
   constexpr static std::size_t SC_TOTAL_TABLES = SC_PATH_OFFSET + sc_path_bits.size();
   constexpr static uint16_t SC_RUN_MAX = (1u << 10) - 1;
-  constexpr static std::size_t SC_WEIGHT_TABLE_SIZE = 1 << 14;
+  constexpr static std::size_t SC_WEIGHT_TABLE_SIZE = 1 << 17;
   constexpr static std::size_t SC_LOCAL_HISTORY_SIZE = 1 << 14;
   constexpr static std::size_t SC_SELECTOR_SIZE = 1 << 15;
   constexpr static std::size_t SC_SELECTOR_CONTEXTS = 4;
