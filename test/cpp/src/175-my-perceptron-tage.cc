@@ -44,7 +44,7 @@ struct my_perceptron_test_access {
     REQUIRE(p.use_alt_on_na[selector_index].value() == 0);
 
     // A useful provider must bypass even a strongly alternate-biased selector.
-    install(p, 11, 0, 1);
+    install(p, p.TAGE_TABLES - 1, 0, 1);
     p.use_alt_on_na[p.last_result.alt_selector_index] = 7;
     REQUIRE(p.predict_branch(pc));
     REQUIRE_FALSE(p.last_result.used_alternate);
@@ -122,12 +122,13 @@ struct my_perceptron_test_access {
     }
 
     my_perceptron longest{nullptr};
-    install(longest, 11, -2);
+    constexpr auto last_bank = my_perceptron::TAGE_TABLES - 1;
+    install(longest, last_bank, -2);
     longest.predict_branch(pc);
     const auto longest_saved = longest.last_result;
     update(longest, true); // No longer bank: no out-of-range access or modulo zero.
-    REQUIRE(longest.tage_counters[11][longest_saved.indices[11]].value() == -1);
-    for (std::size_t bank = 0; bank < 11; ++bank)
+    REQUIRE(longest.tage_counters[last_bank][longest_saved.indices[last_bank]].value() == -1);
+    for (std::size_t bank = 0; bank < last_bank; ++bank)
       REQUIRE(longest.tage_tags[bank][longest_saved.indices[bank]] == 0);
   }
 
@@ -238,6 +239,38 @@ struct my_perceptron_test_access {
     for (std::size_t bank = 0; bank < p.TAGE_TABLES; ++bank)
       changed = changed || first.indices[bank] != second.indices[bank] || first.tags[bank] != second.tags[bank];
     REQUIRE(changed);
+  }
+
+  static void intermediate_history()
+  {
+    my_perceptron left{nullptr}, right{nullptr};
+    // Identical addresses/path and last 8 outcomes; the ninth outcome differs.
+    for (int i = 0; i < 9; ++i) {
+      left.predict_branch(pc);
+      right.predict_branch(pc);
+      update(left, i == 0);
+      update(right, false);
+    }
+    left.predict_branch(pc);
+    right.predict_branch(pc);
+    REQUIRE(left.last_result.indices[1] == right.last_result.indices[1]);
+    REQUIRE(left.last_result.tags[1] == right.last_result.tags[1]);
+    REQUIRE(left.last_result.indices[2] != right.last_result.indices[2]);
+    REQUIRE(left.last_result.tags[2] != right.last_result.tags[2]);
+
+    // The new 12-outcome bank can provide a prediction over an 8-outcome alternate.
+    my_perceptron p{nullptr};
+    install(p, 1, -2);
+    install(p, 2, 2);
+    REQUIRE(p.predict_branch(pc));
+    REQUIRE(p.last_result.provider == 2);
+    REQUIRE(p.last_result.alternate == 1);
+    const auto saved = p.last_result;
+    update(p, false);
+    unsigned allocated = 0;
+    for (std::size_t bank = 3; bank < p.TAGE_TABLES; ++bank)
+      allocated += p.tage_tags[bank][saved.indices[bank]] == saved.tags[bank] ? 1u : 0u;
+    REQUIRE(allocated == 2);
   }
 
   // Set a controlled SC margin without bypassing prediction-time bookkeeping.
@@ -440,6 +473,11 @@ TEST_CASE("SC chooser separates direction and confidence of the selected TAGE so
 TEST_CASE("TAGE path history separates identical outcome contexts", "[my_perceptron]")
 {
   my_perceptron_test_access::path_history_separates_contexts();
+}
+
+TEST_CASE("Intermediate TAGE histories distinguish and learn beyond shorter contexts", "[my_perceptron]")
+{
+  my_perceptron_test_access::intermediate_history();
 }
 
 TEST_CASE("SC adapts training margin with bounded accumulated evidence", "[my_perceptron]")

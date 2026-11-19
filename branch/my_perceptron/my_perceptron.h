@@ -22,7 +22,8 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::size_t GSHARE_TABLE_SIZE = 1 << 14;
   constexpr static std::size_t BASE_CHOOSER_SIZE = 1 << 14;
   constexpr static std::size_t ALT_SELECTOR_SIZE = 1 << 14;
-  constexpr static std::size_t TAGE_TABLES = 12;
+  constexpr static std::size_t TAGE_TABLES = 20;
+  static_assert(3 * (TAGE_TABLES - 1) + 1 < 64, "Path hash shifts must fit uint64_t");
   constexpr static std::size_t TAGE_TABLE_SIZE = 1 << 13;
   constexpr static std::size_t SC_TABLES = 8;
   constexpr static std::array<unsigned, 3> sc_local_lengths = {4, 10, 20};
@@ -47,8 +48,9 @@ class my_perceptron : champsim::modules::branch_predictor
   constexpr static std::size_t LOOP_TABLE_SIZE = 1 << 12;
 
   constexpr static std::array<bits, TAGE_TABLES> history_lengths = {
-      bits{4},    bits{8},    bits{16},   bits{32},   bits{64},   bits{128},
-      bits{256},  bits{512},  bits{1024}, bits{2048}, bits{4096}, bits{8192}};
+      bits{4},   bits{8},   bits{12},  bits{16},  bits{24},   bits{32},   bits{48},
+      bits{64},  bits{96},  bits{128}, bits{192}, bits{256},  bits{384},  bits{512},
+      bits{768}, bits{1024}, bits{2048}, bits{3072}, bits{4096}, bits{8192}};
   constexpr static std::array<bits, SC_TABLES> sc_history_lengths = {
       bits{0}, bits{4}, bits{8}, bits{16}, bits{32}, bits{64}, bits{128}, bits{256}};
 
